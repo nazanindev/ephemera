@@ -105,9 +105,8 @@ html, body {
 
 #canvas {
   position: relative;
-  width: 1800px;
-  height: 1200px;
-  overflow: hidden;
+  width: 1600px;
+  height: 2200px;
   background: var(--bg);
 }
 

@@ -135,7 +135,7 @@ def _build_collage_dict(job_id: str, topic: str, fragments: list[Fragment]) -> d
         "job_id": job_id,
         "topic": topic,
         "seed": _seed_from_topic(topic),
-        "canvas": {"width": 1800, "height": 1200},
+        "canvas": {"width": 1600, "height": 2200},
         "fragments": [f.model_dump() for f in fragments],
     }
 

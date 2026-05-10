@@ -4,14 +4,17 @@ import httpx
 from app.models import Fragment, FragmentType
 
 TYPE_CAPS = {
-    FragmentType.image: 20,
-    FragmentType.headline: 16,
-    FragmentType.snippet: 18,
-    FragmentType.metadata: 4,
-    FragmentType.archive_screenshot: 6,
+    FragmentType.image: 32,
+    FragmentType.headline: 20,
+    FragmentType.snippet: 26,
+    FragmentType.metadata: 8,
+    FragmentType.archive_screenshot: 8,
 }
 
-DOMAIN_CAP = 4
+# Images from the same source domain are still distinct photos; text from the
+# same domain risks repetition, so keep it tight.
+IMAGE_DOMAIN_CAP = 18
+TEXT_DOMAIN_CAP = 4
 
 # Openverse images are precise/topical — prioritise them
 _SOURCE_ORDER = {"openverse": 0, "wikimedia": 1, "": 2}
@@ -54,7 +57,8 @@ def rank_and_filter_incremental(
             if len(f.content.strip()) < 6:
                 continue
         d = f.source_domain
-        if d and domain_counts.get(d, 0) >= DOMAIN_CAP:
+        dcap = IMAGE_DOMAIN_CAP if f.type == FragmentType.image else TEXT_DOMAIN_CAP
+        if d and domain_counts.get(d, 0) >= dcap:
             continue
         cap = TYPE_CAPS.get(f.type, 999)
         if type_counts.get(f.type, 0) >= cap:
@@ -121,8 +125,9 @@ def _apply_domain_cap(fragments: list[Fragment]) -> list[Fragment]:
     out = []
     for f in fragments:
         d = f.source_domain
+        cap = IMAGE_DOMAIN_CAP if f.type == FragmentType.image else TEXT_DOMAIN_CAP
         count = domain_counts.get(d, 0)
-        if not d or count < DOMAIN_CAP:
+        if not d or count < cap:
             domain_counts[d] = count + 1
             out.append(f)
     return out

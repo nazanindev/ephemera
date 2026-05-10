@@ -193,6 +193,12 @@ function buildFragment(frag) {
     const div = document.createElement("div");
     div.className = "fragment-headline";
     div.style.width = `${width}px`;
+    if (layout.text_color) {
+      div.style.color = layout.text_color;
+      if (layout.text_color === "#ffffff" || layout.text_color === "#f0e6d3") {
+        div.style.textShadow = "0 1px 3px rgba(0,0,0,0.6)";
+      }
+    }
     div.textContent = content;
     wrapper.appendChild(div);
 
@@ -200,12 +206,19 @@ function buildFragment(frag) {
     const div = document.createElement("div");
     div.className = "fragment-snippet";
     div.style.width = `${width}px`;
+    if (layout.text_color) {
+      div.style.color = layout.text_color;
+      if (layout.text_color === "#ffffff" || layout.text_color === "#f0e6d3") {
+        div.style.textShadow = "0 1px 2px rgba(0,0,0,0.5)";
+      }
+    }
     div.textContent = content;
     wrapper.appendChild(div);
 
   } else if (type === "metadata") {
     const span = document.createElement("span");
     span.className = "fragment-metadata";
+    if (layout.text_color) span.style.color = layout.text_color;
     span.textContent = content;
     wrapper.appendChild(span);
 

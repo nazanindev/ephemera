@@ -30,6 +30,7 @@ class FragmentLayout(BaseModel):
     z_index: int
     css_filter: str
     blend_mode: str
+    text_color: str = ""  # override color for text fragments, e.g. "#ffffff"
 
 
 class Fragment(BaseModel):

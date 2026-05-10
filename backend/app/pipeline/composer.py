@@ -42,6 +42,12 @@ ARCHIVE_BLENDS = ["multiply", "multiply", "normal"]
 TEXT_FILTERS = ["", "", "opacity(0.88)"]
 TEXT_BLENDS = ["normal", "normal", "multiply"]
 
+# Color palette for text fragments: dark (default), off-white, and pure white
+# weighted so ~30% of text appears light (pops on image overlap)
+TEXT_COLORS = ["", "", "", "", "#ffffff", "#ffffff", "#f0e6d3", "#1a1208"]
+
+_TEXT_TYPES = {FragmentType.headline, FragmentType.snippet, FragmentType.metadata}
+
 
 def _seed_from_topic(topic: str) -> int:
     return int(hashlib.md5(topic.encode()).hexdigest(), 16) % (2 ** 32)
@@ -77,6 +83,12 @@ def _pick_z(rng: random.Random, ftype: FragmentType) -> int:
     if ftype in (FragmentType.headline, FragmentType.snippet):
         return rng.randint(15, 35)
     return rng.randint(30, 50)  # metadata always on top
+
+
+def _pick_text_color(rng: random.Random, ftype: FragmentType) -> str:
+    if ftype not in _TEXT_TYPES:
+        return ""
+    return rng.choice(TEXT_COLORS)
 
 
 def _pick_effects(rng: random.Random, ftype: FragmentType) -> tuple[str, str]:
@@ -149,6 +161,7 @@ def compose_incremental(
         rotation = _pick_rotation(rng, frag.type)
         z = _pick_z(rng, frag.type)
         css_filter, blend_mode = _pick_effects(rng, frag.type)
+        text_color = _pick_text_color(rng, frag.type)
 
         x_px, y_px = _sparse_position(rng, placed_boxes, width, height)
         placed_boxes.append({"x": x_px, "y": y_px, "w": width, "h": height})
@@ -162,6 +175,7 @@ def compose_incremental(
             z_index=z,
             css_filter=css_filter,
             blend_mode=blend_mode,
+            text_color=text_color,
         )
 
     return priority + rest
@@ -203,6 +217,7 @@ def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
         rotation = _pick_rotation(rng, frag.type)
         z = _pick_z(rng, frag.type)
         css_filter, blend_mode = _pick_effects(rng, frag.type)
+        text_color = _pick_text_color(rng, frag.type)
 
         x_px, y_px = _sparse_position(rng, placed_boxes, width, height)
         placed_boxes.append({"x": x_px, "y": y_px, "w": width, "h": height})
@@ -216,6 +231,7 @@ def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
             z_index=z,
             css_filter=css_filter,
             blend_mode=blend_mode,
+            text_color=text_color,
         )
 
     return ordered
