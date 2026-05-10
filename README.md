@@ -1,12 +1,9 @@
-# ScrapeBook
+Enter a topic. 
+<img width="3454" height="1936" alt="image" src="https://github.com/user-attachments/assets/0b5a228b-2fc0-45bf-8007-8b0a4eed1295" />
 
-Enter a topic. Get a collage.
+Get a collage.
 
-ScrapeBook scrapes real web material — images, headlines, archive fragments, and metadata — from Openverse, Wikipedia, HackerNews, Reddit, and the Wayback Machine, then composes everything into a single-page abstract collage. The same topic always produces the same result.
 
-## Screenshots
-
-<!-- add screenshots here -->
 
 ## Architecture
 
