@@ -13,14 +13,30 @@ const exportBtn = document.getElementById("export-btn");
 const rearrangeBtn = document.getElementById("rearrange-btn");
 const progressWrap = document.getElementById("progress-wrap");
 const progressBar = document.getElementById("progress-bar");
+const densityBtns = document.querySelectorAll(".density-btn");
 
 let lastCollageData = null;
+let selectedDensity = null;
 
 btn.addEventListener("click", onGenerate);
 input.addEventListener("keydown", (e) => { if (e.key === "Enter") onGenerate(); });
 resetBtn.addEventListener("click", onReset);
 exportBtn.addEventListener("click", onExport);
 rearrangeBtn.addEventListener("click", onRearrange);
+
+densityBtns.forEach(b => {
+  b.addEventListener("click", () => {
+    const val = b.dataset.density;
+    if (selectedDensity === val) {
+      selectedDensity = null;
+      b.classList.remove("active");
+    } else {
+      selectedDensity = val;
+      densityBtns.forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    }
+  });
+});
 
 async function onGenerate() {
   const topic = input.value.trim();
@@ -35,7 +51,7 @@ async function onGenerate() {
     const res = await fetch(`${API}/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic }),
+      body: JSON.stringify({ topic, density: selectedDensity }),
     });
     if (!res.ok) throw new Error("generate failed");
     const { job_id } = await res.json();

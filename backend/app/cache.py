@@ -35,9 +35,13 @@ def get_collage(job_id: str) -> dict | None:
     return json.loads(raw) if raw else None
 
 
-def get_cached_collage_id(topic: str) -> str | None:
-    return get_client().get(f"topic:{topic}")
+def _topic_key(topic: str, density: str | None) -> str:
+    return f"topic:{topic}:{density or 'auto'}"
 
 
-def set_topic_cache(topic: str, job_id: str) -> None:
-    get_client().setex(f"topic:{topic}", COLLAGE_TTL, job_id)
+def get_cached_collage_id(topic: str, density: str | None = None) -> str | None:
+    return get_client().get(_topic_key(topic, density))
+
+
+def set_topic_cache(topic: str, job_id: str, density: str | None = None) -> None:
+    get_client().setex(_topic_key(topic, density), COLLAGE_TTL, job_id)

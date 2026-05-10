@@ -55,7 +55,7 @@ def task_scrape_music(self, topic: str) -> list[dict]:
 
 
 @celery_app.task(bind=True)
-def task_assemble(self, results: list, job_id: str, topic: str) -> None:
+def task_assemble(self, results: list, job_id: str, topic: str, density: str | None = None) -> None:
     images_data, texts_data, archive_data = results
 
     try:
@@ -65,22 +65,23 @@ def task_assemble(self, results: list, job_id: str, topic: str) -> None:
         _update_job(job_id, JobStatus.running, progress=75)
 
         vibe = classify_vibe(topic)
-        fragments = rank_and_filter(fragments, vibe=vibe)
+        fragments = rank_and_filter(fragments, vibe=vibe, density=density)
         _update_job(job_id, JobStatus.running, progress=88)
 
-        fragments = compose(topic, fragments, vibe=vibe)
+        fragments = compose(topic, fragments, vibe=vibe, density=density)
 
         cache.set_collage(job_id, _build_collage_dict(job_id, topic, fragments))
+        cache.set_topic_cache(topic, job_id, density)
         _update_job(job_id, JobStatus.done, progress=100)
 
-        task_enrich.delay(job_id, topic)
+        task_enrich.delay(job_id, topic, density)
     except Exception:
         _update_job(job_id, JobStatus.failed, progress=0)
         raise
 
 
 @celery_app.task(bind=True)
-def task_enrich(self, job_id: str, topic: str) -> None:
+def task_enrich(self, job_id: str, topic: str, density: str | None = None) -> None:
     _update_job(job_id, JobStatus.running, progress=50)
 
     pipeline = chord(
@@ -89,13 +90,13 @@ def task_enrich(self, job_id: str, topic: str) -> None:
             task_scrape_enriched_text.s(topic),
             task_scrape_music.s(topic),
         ],
-        task_assemble_enrichment.s(job_id, topic),
+        task_assemble_enrichment.s(job_id, topic, density),
     )
     pipeline.apply_async()
 
 
 @celery_app.task(bind=True)
-def task_assemble_enrichment(self, results: list, job_id: str, topic: str) -> None:
+def task_assemble_enrichment(self, results: list, job_id: str, topic: str, density: str | None = None) -> None:
     wikimedia_data, enriched_texts, music_data = results
 
     try:
@@ -113,8 +114,8 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str) -> No
         )
 
         vibe = classify_vibe(topic)
-        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments, vibe=vibe)
-        new_fragments = compose_incremental(topic, new_fragments, existing_fragments, vibe=vibe)
+        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments, vibe=vibe, density=density)
+        new_fragments = compose_incremental(topic, new_fragments, existing_fragments, vibe=vibe, density=density)
 
         all_fragments = existing_fragments + new_fragments
         cache.set_collage(job_id, _build_collage_dict(job_id, topic, all_fragments))
@@ -125,7 +126,7 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str) -> No
 
 
 @celery_app.task(bind=True)
-def task_orchestrate(self, job_id: str, topic: str) -> None:
+def task_orchestrate(self, job_id: str, topic: str, density: str | None = None) -> None:
     _update_job(job_id, JobStatus.running, progress=10)
 
     pipeline = chord(
@@ -134,7 +135,7 @@ def task_orchestrate(self, job_id: str, topic: str) -> None:
             task_scrape_text.s(topic),
             task_scrape_archive.s(topic),
         ],
-        task_assemble.s(job_id, topic),
+        task_assemble.s(job_id, topic, density),
     )
     pipeline.apply_async()
 

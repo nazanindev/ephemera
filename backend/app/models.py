@@ -55,6 +55,7 @@ class Job(BaseModel):
 
 class GenerateRequest(BaseModel):
     topic: str
+    density: str | None = None  # "sparse" | "dense" | None
 
 
 class GenerateResponse(BaseModel):

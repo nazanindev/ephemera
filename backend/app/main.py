@@ -25,11 +25,12 @@ app.add_middleware(
 @app.post("/generate", response_model=GenerateResponse)
 def generate(req: GenerateRequest):
     topic = req.topic.strip()
+    density = req.density if req.density in ("sparse", "dense") else None
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
 
     # Return cached result immediately if available
-    cached_id = cache.get_cached_collage_id(topic)
+    cached_id = cache.get_cached_collage_id(topic, density)
     if cached_id and cache.get_collage(cached_id):
         return GenerateResponse(job_id=cached_id)
 
@@ -39,7 +40,7 @@ def generate(req: GenerateRequest):
         "status": JobStatus.pending.value,
         "progress": 0,
     })
-    task_orchestrate.delay(job_id, topic)
+    task_orchestrate.delay(job_id, topic, density)
     return GenerateResponse(job_id=job_id)
 
 

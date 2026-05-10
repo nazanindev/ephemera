@@ -71,6 +71,36 @@ html, body {
   color: var(--fg);
 }
 
+/* ── density toggles ── */
+
+#density-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.density-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.6rem;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.density-btn:hover {
+  color: var(--fg);
+  border-color: var(--dim);
+}
+
+.density-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ── progress bar ── */
 
 #progress-wrap {

@@ -5,13 +5,14 @@ from app.models import Fragment, FragmentType
 
 IMAGE_DOMAIN_CAP = 18
 TEXT_DOMAIN_CAP = 4
+TEXT_MIN_LEN = 5
 
 _SOURCE_ORDER = {"openverse": 0, "wikimedia": 1, "": 2}
 
 _SPARSE_CAPS = {
     FragmentType.image: 14,
     FragmentType.headline: 8,
-    FragmentType.snippet: 12,
+    FragmentType.snippet: 30,
     FragmentType.metadata: 3,
     FragmentType.archive_screenshot: 3,
 }
@@ -22,17 +23,35 @@ _DENSE_CAPS = {
     FragmentType.metadata: 8,
     FragmentType.archive_screenshot: 8,
 }
+_USER_SPARSE_CAPS = {
+    FragmentType.image: 5,
+    FragmentType.headline: 1,
+    FragmentType.snippet: 20,
+    FragmentType.metadata: 5,
+    FragmentType.archive_screenshot: 3,
+}
+_USER_DENSE_CAPS = {
+    FragmentType.image: 50,
+    FragmentType.headline: 20,
+    FragmentType.snippet: 32,
+    FragmentType.metadata: 8,
+    FragmentType.archive_screenshot: 10,
+}
 
 
-def _vibe_caps(vibe: float) -> dict:
+def _resolve_caps(vibe: float, density: str | None) -> dict:
+    if density == "sparse":
+        return _USER_SPARSE_CAPS
+    if density == "dense":
+        return _USER_DENSE_CAPS
     return {
         t: max(1, round(_SPARSE_CAPS[t] + (_DENSE_CAPS[t] - _SPARSE_CAPS[t]) * vibe))
         for t in FragmentType
     }
 
 
-def rank_and_filter(fragments: list[Fragment], vibe: float = 0.5) -> list[Fragment]:
-    caps = _vibe_caps(vibe)
+def rank_and_filter(fragments: list[Fragment], vibe: float = 0.5, density: str | None = None) -> list[Fragment]:
+    caps = _resolve_caps(vibe, density)
     fragments = _dedup(fragments)
     fragments = _sort_images_by_source(fragments)
     fragments = _check_image_links(fragments)
@@ -45,8 +64,9 @@ def rank_and_filter_incremental(
     new_fragments: list[Fragment],
     existing_fragments: list[Fragment],
     vibe: float = 0.5,
+    density: str | None = None,
 ) -> list[Fragment]:
-    caps = _vibe_caps(vibe)
+    caps = _resolve_caps(vibe, density)
     existing_hashes = {_content_hash(f) for f in existing_fragments}
     existing_type_counts: dict[FragmentType, int] = {}
     existing_domain_counts: dict[str, int] = {}
@@ -65,7 +85,7 @@ def rank_and_filter_incremental(
     type_counts = dict(existing_type_counts)
     for f in fresh:
         if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
-            if len(f.content.strip()) < 15:
+            if len(f.content.strip()) < TEXT_MIN_LEN:
                 continue
         d = f.source_domain
         dcap = IMAGE_DOMAIN_CAP if f.type == FragmentType.image else TEXT_DOMAIN_CAP
@@ -146,7 +166,7 @@ def _apply_type_caps(fragments: list[Fragment], caps: dict) -> list[Fragment]:
     out = []
     for f in fragments:
         if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
-            if len(f.content.strip()) < 15:
+            if len(f.content.strip()) < TEXT_MIN_LEN:
                 continue
         cap = caps.get(f.type, 999)
         count = type_counts.get(f.type, 0)

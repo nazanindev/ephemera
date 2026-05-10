@@ -12,9 +12,9 @@ GRID_COLS = 8
 GRID_ROWS = 11
 
 SIZE_BUCKETS = {
-    "small": (120, 200),
-    "medium": (220, 380),
-    "large": (400, 580),
+    "small": (90, 240),
+    "medium": (200, 480),
+    "large": (380, 760),
 }
 
 ROTATION_POOL = [-18, -12, -8, -4, -2, 0, 2, 4, 8, 12, 18]
@@ -62,7 +62,7 @@ def _make_vibe_params(vibe: float) -> _VibeParams:
         overlap_threshold=_lerp(0.04, 0.25, vibe),
         image_margin=int(_lerp(60, 8, vibe)),
         placement_attempts=int(_lerp(25, 12, vibe)),
-        max_image_width=int(_lerp(360, 580, vibe)),
+        max_image_width=int(_lerp(420, 760, vibe)),
         large_prob=_lerp(0.08, 0.40, vibe),
         small_prob=_lerp(0.35, 0.10, vibe),
         max_rotation=int(_lerp(8, 18, vibe)),
@@ -231,7 +231,7 @@ def _layout_fragment(
     )
 
 
-def compose(topic: str, fragments: list[Fragment], vibe: float = 0.5) -> list[Fragment]:
+def compose(topic: str, fragments: list[Fragment], vibe: float = 0.5, density: str | None = None) -> list[Fragment]:
     seed = _seed_from_topic(topic)
     rng = random.Random(seed)
     params = _make_vibe_params(vibe)
@@ -245,9 +245,10 @@ def compose(topic: str, fragments: list[Fragment], vibe: float = 0.5) -> list[Fr
 
     repeats = []
     if len(priority) >= 2:
-        n_repeats = rng.randint(1, min(2, len(priority) - 1))
+        max_repeats = 10 if density == "dense" else 2
+        n_repeats = rng.randint(1, min(max_repeats, len(priority) - 1))
         for i in range(n_repeats):
-            r = copy.deepcopy(priority[i])
+            r = copy.deepcopy(priority[i % len(priority)])
             r.og = {**r.og, "_repeat": True}
             repeats.append(r)
 
@@ -263,6 +264,7 @@ def compose_incremental(
     new_fragments: list[Fragment],
     existing_fragments: list[Fragment],
     vibe: float = 0.5,
+    density: str | None = None,
 ) -> list[Fragment]:
     seed = _seed_from_topic(topic + "_enrich")
     rng = random.Random(seed)
