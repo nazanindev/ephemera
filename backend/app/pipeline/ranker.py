@@ -89,7 +89,10 @@ def _sort_images_by_source(fragments: list[Fragment]) -> list[Fragment]:
 
 def _check_image_links(fragments: list[Fragment], max_to_check: int = 35) -> list[Fragment]:
     image_types = {FragmentType.image, FragmentType.archive_screenshot}
-    to_check = [f for f in fragments if f.type in image_types]
+    # Wikimedia blocks server-side HEAD/GET (hotlink protection); browser loads them
+    # fine and onerror cleans up any that fail — skip server-side check entirely.
+    wikimedia = [f for f in fragments if f.type in image_types and f.image_source == "wikimedia"]
+    to_check = [f for f in fragments if f.type in image_types and f.image_source != "wikimedia"]
     others = [f for f in fragments if f.type not in image_types]
 
     # Cap how many we validate to avoid serial-HEAD bottleneck
@@ -110,7 +113,7 @@ def _check_image_links(fragments: list[Fragment], max_to_check: int = 35) -> lis
             except Exception:
                 pass
 
-    return valid + unchecked + others
+    return valid + unchecked + wikimedia + others
 
 
 def _apply_domain_cap(fragments: list[Fragment]) -> list[Fragment]:

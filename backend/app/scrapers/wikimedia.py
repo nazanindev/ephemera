@@ -1,5 +1,6 @@
 from __future__ import annotations
 import httpx
+from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 
 _HEADERS = {"User-Agent": "Scrapebook/1.0 (toy project)"}
 _BAD_MIMES = {"image/svg+xml", "image/tiff", "image/x-xcf"}
@@ -50,8 +51,8 @@ def _search(query: str) -> list[dict]:
             h = ii.get("height", 0)
             if w < _MIN_DIM or h < _MIN_DIM:
                 continue
-            # Prefer thumburl — served from a CDN path that allows hotlinking
-            url = ii.get("thumburl") or ii.get("url", "")
+            # Prefer thumburl — served from /thumb/ CDN path
+            url = _strip_utm(ii.get("thumburl") or ii.get("url", ""))
             if not url:
                 continue
             thumb_w = ii.get("thumbwidth") or min(w, 800)
@@ -68,3 +69,12 @@ def _search(query: str) -> list[dict]:
         return results
     except Exception:
         return []
+
+
+def _strip_utm(url: str) -> str:
+    if not url:
+        return url
+    parts = urlparse(url)
+    qs = {k: v for k, v in parse_qs(parts.query).items() if not k.startswith("utm_")}
+    clean_query = urlencode(qs, doseq=True)
+    return urlunparse(parts._replace(query=clean_query))
