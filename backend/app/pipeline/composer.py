@@ -11,12 +11,12 @@ CANVAS_H = 2200
 GRID_COLS = 8
 GRID_ROWS = 11  # ~200px cells
 
-MAX_IMAGE_WIDTH = 700  # px — prevents one image from dominating
+MAX_IMAGE_WIDTH = 580  # px — prevents one image from dominating
 
 SIZE_BUCKETS = {
-    "small": (120, 220),
-    "medium": (250, 450),
-    "large": (480, 750),
+    "small": (120, 200),
+    "medium": (220, 380),
+    "large": (400, 580),
 }
 
 ROTATION_POOL = [-18, -12, -8, -4, -2, 0, 2, 4, 8, 12, 18]
@@ -51,9 +51,11 @@ _TEXT_TYPES = {FragmentType.headline, FragmentType.snippet, FragmentType.metadat
 _IMAGE_TYPES = {FragmentType.image, FragmentType.archive_screenshot}
 
 # Full-overlap threshold: stop trying if best candidate is below this ratio
-_OVERLAP_GOOD_ENOUGH = 0.35
+_OVERLAP_GOOD_ENOUGH = 0.12
 # Max attempts per image fragment to find a low-overlap position
-_PLACEMENT_ATTEMPTS = 6
+_PLACEMENT_ATTEMPTS = 16
+# Minimum pixel gap between image bounding boxes (soft aesthetic spacing)
+_IMAGE_MARGIN = 20
 
 
 def _seed_from_topic(topic: str) -> int:
@@ -136,20 +138,22 @@ def _sparse_position(rng: random.Random, placed_boxes: list[dict], width: int, h
 
 
 def _image_overlap_score(x: float, y: float, w: int, h: int, placed_boxes: list[dict]) -> float:
-    """Return the worst overlap ratio (fraction of the smaller rect) against any existing image box."""
-    ax1, ay1, ax2, ay2 = x, y, x + w, y + h
+    """Return the worst overlap ratio (fraction of the smaller rect) against any existing image box.
+    Boxes are expanded by _IMAGE_MARGIN so nearby placements score > 0."""
+    m = _IMAGE_MARGIN
+    ax1, ay1, ax2, ay2 = x - m, y - m, x + w + m, y + h + m
     worst = 0.0
     for box in placed_boxes:
         if not box.get("is_image"):
             continue
-        bx1, by1 = box["x"], box["y"]
-        bx2, by2 = bx1 + box["w"], by1 + box["h"]
+        bx1, by1 = box["x"] - m, box["y"] - m
+        bx2, by2 = box["x"] + box["w"] + m, box["y"] + box["h"] + m
         ix1, iy1 = max(ax1, bx1), max(ay1, by1)
         ix2, iy2 = min(ax2, bx2), min(ay2, by2)
         if ix2 <= ix1 or iy2 <= iy1:
             continue
         intersection = (ix2 - ix1) * (iy2 - iy1)
-        smaller = min(w * h, box["w"] * box["h"])
+        smaller = min((w + 2 * m) * (h + 2 * m), (box["w"] + 2 * m) * (box["h"] + 2 * m))
         if smaller > 0:
             worst = max(worst, intersection / smaller)
     return worst
