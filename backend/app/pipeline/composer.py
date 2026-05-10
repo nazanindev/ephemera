@@ -86,7 +86,9 @@ def _pick_size(rng: random.Random, ftype: FragmentType, params: _VibeParams) -> 
         lo, hi = SIZE_BUCKETS["medium"]
     else:
         lo, hi = SIZE_BUCKETS["large"]
-    return rng.randint(lo, min(hi, params.max_image_width))
+    hi = min(hi, params.max_image_width)
+    lo = min(lo, hi)
+    return rng.randint(lo, hi)
 
 
 def _pick_rotation(rng: random.Random, ftype: FragmentType, max_rot: int) -> float:
