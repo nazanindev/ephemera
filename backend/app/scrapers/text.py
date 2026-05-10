@@ -1,6 +1,18 @@
 from __future__ import annotations
+import re
 import httpx
 from urllib.parse import urlparse, quote
+
+
+def _topic_as_whole_word(topic: str, *texts: str) -> bool:
+    """Return True if topic appears as a standalone word in any of the texts."""
+    # Use negative lookbehind/lookahead for letters to avoid substring matches
+    # e.g. "bloom" should NOT match inside "bloomberg" or "bloomtech"
+    pattern = r"(?<![a-zA-Z])" + re.escape(topic) + r"(?![a-zA-Z])"
+    for text in texts:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+    return False
 
 
 def scrape_text(topic: str, max_results: int = 60) -> list[dict]:
@@ -67,6 +79,8 @@ def _fetch_hackernews(topic: str) -> list[dict]:
             title = hit.get("title", "")
             if not title:
                 continue
+            if not _topic_as_whole_word(topic, title):
+                continue
             url = hit.get("url") or f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}"
             created = (hit.get("created_at") or "")[:10]
             results.append({
@@ -93,6 +107,9 @@ def _fetch_reddit(topic: str) -> list[dict]:
         for child in resp.json().get("data", {}).get("children", []):
             d = child.get("data", {})
             title = d.get("title", "")
+            selftext = d.get("selftext", "")[:500]
+            if not _topic_as_whole_word(topic, title, selftext):
+                continue
             url = d.get("url", "")
             domain = d.get("domain", urlparse(url).netloc)
             created = str(d.get("created_utc", ""))[:10]
@@ -100,7 +117,7 @@ def _fetch_reddit(topic: str) -> list[dict]:
             subreddit_prefixed = d.get("subreddit_name_prefixed", "")
             results.append({
                 "title": title,
-                "snippet": d.get("selftext", "")[:500],
+                "snippet": selftext,
                 "url": url,
                 "domain": domain,
                 "subreddit": subreddit,
