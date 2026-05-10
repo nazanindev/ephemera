@@ -51,17 +51,6 @@ def extract_fragments(
                 source_domain=domain,
             ))
 
-        pub = og.get("published_time", "")
-        if pub and len(pub) >= 10:
-            # Format as a timestamp artifact: "2001 · example.com"
-            year = pub[:4]
-            fragments.append(Fragment(
-                type=FragmentType.metadata,
-                content=f"{year} · {domain}" if domain else year,
-                source_url=item.get("url", ""),
-                source_domain=domain,
-            ))
-
         desc = og.get("description", "")
         if desc and len(desc) > 60:
             fragments.append(Fragment(
@@ -82,14 +71,6 @@ def extract_fragments(
                 "year": snap["year"],
                 "original_url": snap["original_url"],
             },
-        ))
-        # Also surface raw URL + year as a metadata atom
-        fragments.append(Fragment(
-            type=FragmentType.metadata,
-            content=f"{snap['year']} — {snap['domain']}",
-            source_url=snap["wayback_url"],
-            source_domain=snap["domain"],
-            captured_at=snap["timestamp"],
         ))
 
     return fragments

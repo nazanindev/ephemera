@@ -3,18 +3,12 @@ import hashlib
 import random
 from app.models import Fragment, FragmentLayout, FragmentType
 
-CANVAS_W = 1800
-CANVAS_H = 1200
+CANVAS_W = 1600
+CANVAS_H = 2200
 
-# 3×2 zone grid — interleaved top/bottom so images scatter across full canvas
-ZONES = [
-    (0.0,  0.0,  0.33, 0.5),   # top-left
-    (0.0,  0.5,  0.33, 1.0),   # bottom-left
-    (0.33, 0.0,  0.66, 0.5),   # top-center
-    (0.33, 0.5,  0.66, 1.0),   # bottom-center
-    (0.66, 0.0,  1.0,  0.5),   # top-right
-    (0.66, 0.5,  1.0,  1.0),   # bottom-right
-]
+# Sparse-grid dimensions for even coverage
+GRID_COLS = 8
+GRID_ROWS = 11  # ~200px cells
 
 MAX_IMAGE_WIDTH = 700  # px — prevents one image from dominating
 
@@ -95,19 +89,28 @@ def _pick_effects(rng: random.Random, ftype: FragmentType) -> tuple[str, str]:
     return "", "normal"
 
 
-def _overlap_fraction(a: dict, b: dict) -> float:
-    ax1, ay1 = a["x"], a["y"]
-    ax2, ay2 = ax1 + a["w"], ay1 + a["h"]
-    bx1, by1 = b["x"], b["y"]
-    bx2, by2 = bx1 + b["w"], by1 + b["h"]
+def _sparse_position(rng: random.Random, placed_boxes: list[dict], width: int, height: int) -> tuple[float, float]:
+    """Pick a canvas position biased toward areas with the fewest placed fragments."""
+    cell_w = CANVAS_W / GRID_COLS
+    cell_h = CANVAS_H / GRID_ROWS
 
-    ix = max(0, min(ax2, bx2) - max(ax1, bx1))
-    iy = max(0, min(ay2, by2) - max(ay1, by1))
-    intersection = ix * iy
-    area_a = (ax2 - ax1) * (ay2 - ay1)
-    if area_a == 0:
-        return 0.0
-    return intersection / area_a
+    # Count fragment centers per cell
+    coverage = [[0] * GRID_ROWS for _ in range(GRID_COLS)]
+    for box in placed_boxes:
+        ci = min(int((box["x"] + box["w"] / 2) / cell_w), GRID_COLS - 1)
+        ri = min(int((box["y"] + box["h"] / 2) / cell_h), GRID_ROWS - 1)
+        coverage[ci][ri] += 1
+
+    min_cov = min(coverage[c][r] for c in range(GRID_COLS) for r in range(GRID_ROWS))
+    sparse = [(c, r) for c in range(GRID_COLS) for r in range(GRID_ROWS)
+              if coverage[c][r] == min_cov]
+
+    c, r = rng.choice(sparse)
+    x = c * cell_w + rng.uniform(0.0, max(0.0, cell_w - width * 0.5))
+    y = r * cell_h + rng.uniform(0.0, max(0.0, cell_h - height * 0.5))
+    x = max(0.0, min(x, CANVAS_W - width))
+    y = max(0.0, min(y, CANVAS_H - height))
+    return x, y
 
 
 def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
@@ -115,9 +118,8 @@ def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
     rng = random.Random(seed)
 
     placed_boxes: list[dict] = []
-    zone_filled = [False] * len(ZONES)
 
-    # Shuffle fragments but keep images/archive first for visual anchoring
+    # Images/archive first for visual anchoring, then text
     priority = [f for f in fragments if f.type in (FragmentType.image, FragmentType.archive_screenshot)]
     rest = [f for f in fragments if f.type not in (FragmentType.image, FragmentType.archive_screenshot)]
     rng.shuffle(priority)
@@ -135,14 +137,11 @@ def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
 
     ordered = priority + rest + repeats
 
-    for i, frag in enumerate(ordered):
+    for frag in ordered:
         is_repeat = frag.og.get("_repeat", False)
         width = _pick_size(rng, frag.type)
         if frag.type in (FragmentType.image, FragmentType.archive_screenshot):
-            if is_repeat:
-                width = rng.randint(120, 240)  # echo: deliberately small
-            else:
-                width = min(width, MAX_IMAGE_WIDTH)
+            width = rng.randint(120, 240) if is_repeat else min(width, MAX_IMAGE_WIDTH)
         height = int(width * rng.uniform(0.55, 1.2)) if frag.type in (
             FragmentType.image, FragmentType.archive_screenshot
         ) else int(width * rng.uniform(0.25, 0.7))
@@ -151,34 +150,7 @@ def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
         z = _pick_z(rng, frag.type)
         css_filter, blend_mode = _pick_effects(rng, frag.type)
 
-        # Try to fill an empty zone first
-        x_frac, y_frac = None, None
-        for zi, zone in enumerate(ZONES):
-            if not zone_filled[zi]:
-                zx1, zy1, zx2, zy2 = zone
-                x_frac = rng.uniform(zx1, max(zx1, zx2 - width / CANVAS_W))
-                y_frac = rng.uniform(zy1, max(zy1, zy2 - height / CANVAS_H))
-                zone_filled[zi] = True
-                break
-
-        if x_frac is None:
-            # Free placement — try up to 5 positions, nudge if too crowded
-            for attempt in range(5):
-                x_frac = rng.uniform(0.0, max(0.01, 1.0 - width / CANVAS_W))
-                y_frac = rng.uniform(0.0, max(0.01, 1.0 - height / CANVAS_H))
-                box = {"x": x_frac * CANVAS_W, "y": y_frac * CANVAS_H, "w": width, "h": height}
-                heavy_overlaps = sum(
-                    1 for pb in placed_boxes if _overlap_fraction(box, pb) > 0.4
-                )
-                if heavy_overlaps < 3:
-                    break
-                # Nudge 10% toward canvas center
-                x_frac = x_frac * 0.9 + 0.05
-                y_frac = y_frac * 0.9 + 0.05
-
-        x_px = x_frac * CANVAS_W
-        y_px = y_frac * CANVAS_H
-
+        x_px, y_px = _sparse_position(rng, placed_boxes, width, height)
         placed_boxes.append({"x": x_px, "y": y_px, "w": width, "h": height})
 
         frag.layout = FragmentLayout(

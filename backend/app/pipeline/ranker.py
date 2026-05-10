@@ -5,15 +5,15 @@ from app.models import Fragment, FragmentType
 
 # Max fragments per type in final collage
 TYPE_CAPS = {
-    FragmentType.image: 12,
-    FragmentType.headline: 8,
-    FragmentType.snippet: 6,
-    FragmentType.metadata: 10,
+    FragmentType.image: 20,
+    FragmentType.headline: 10,
+    FragmentType.snippet: 8,
+    FragmentType.metadata: 6,
     FragmentType.archive_screenshot: 6,
 }
 
 # Max fragments from a single domain
-DOMAIN_CAP = 3
+DOMAIN_CAP = 4
 
 
 def rank_and_filter(fragments: list[Fragment]) -> list[Fragment]:
