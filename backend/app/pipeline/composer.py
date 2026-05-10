@@ -14,7 +14,7 @@ GRID_ROWS = 11
 SIZE_BUCKETS = {
     "small": (90, 240),
     "medium": (200, 480),
-    "large": (380, 760),
+    "large": (380, 1100),
 }
 
 ROTATION_POOL = [-18, -12, -8, -4, -2, 0, 2, 4, 8, 12, 18]
@@ -62,7 +62,7 @@ def _make_vibe_params(vibe: float) -> _VibeParams:
         overlap_threshold=_lerp(0.04, 0.25, vibe),
         image_margin=int(_lerp(60, 8, vibe)),
         placement_attempts=int(_lerp(25, 12, vibe)),
-        max_image_width=int(_lerp(420, 760, vibe)),
+        max_image_width=int(_lerp(420, 1100, vibe)),
         large_prob=_lerp(0.08, 0.40, vibe),
         small_prob=_lerp(0.35, 0.10, vibe),
         max_rotation=int(_lerp(8, 18, vibe)),
