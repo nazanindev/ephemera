@@ -3,7 +3,7 @@ import httpx
 from urllib.parse import urlparse
 
 
-def scrape_text(topic: str, max_results: int = 20) -> list[dict]:
+def scrape_text(topic: str, max_results: int = 40) -> list[dict]:
     results: list[dict] = []
     results.extend(_fetch_wikipedia(topic))
     results.extend(_fetch_hackernews(topic))
@@ -20,7 +20,7 @@ def _fetch_wikipedia(topic: str) -> list[dict]:
                 "list": "search",
                 "srsearch": topic,
                 "format": "json",
-                "srlimit": 8,
+                "srlimit": 15,
                 "utf8": 1,
             },
             timeout=8,
@@ -50,7 +50,7 @@ def _fetch_hackernews(topic: str) -> list[dict]:
     try:
         resp = httpx.get(
             "https://hn.algolia.com/api/v1/search",
-            params={"query": topic, "tags": "story", "hitsPerPage": 10},
+            params={"query": topic, "tags": "story", "hitsPerPage": 20},
             timeout=8,
         )
         results = []
@@ -76,7 +76,7 @@ def _fetch_reddit(topic: str) -> list[dict]:
     try:
         resp = httpx.get(
             "https://www.reddit.com/search.json",
-            params={"q": topic, "sort": "top", "limit": 8, "t": "year"},
+            params={"q": topic, "sort": "top", "limit": 15, "t": "year"},
             timeout=8,
             headers={"User-Agent": "Scrapbook/1.0"},
         )

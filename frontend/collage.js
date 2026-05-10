@@ -143,7 +143,8 @@ function buildFragment(frag) {
 
     const cap = document.createElement("figcaption");
     const year = (og && og.year) ? og.year : (captured_at ? captured_at.slice(0, 4) : "");
-    cap.textContent = [year, source_url].filter(Boolean).join("  ");
+    const origDomain = (og && og.original_url) ? new URL(og.original_url).hostname.replace(/^www\./, "") : "";
+    cap.textContent = [year, origDomain].filter(Boolean).join(" · ");
 
     fig.appendChild(img);
     fig.appendChild(cap);

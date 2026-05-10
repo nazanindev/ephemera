@@ -6,8 +6,8 @@ from app.models import Fragment, FragmentType
 # Max fragments per type in final collage
 TYPE_CAPS = {
     FragmentType.image: 20,
-    FragmentType.headline: 10,
-    FragmentType.snippet: 8,
+    FragmentType.headline: 16,
+    FragmentType.snippet: 12,
     FragmentType.metadata: 6,
     FragmentType.archive_screenshot: 6,
 }
