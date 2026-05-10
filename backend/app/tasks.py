@@ -7,9 +7,11 @@ from app.scrapers.images import scrape_images
 from app.scrapers.text import scrape_text, scrape_text_enriched
 from app.scrapers.archive import scrape_archive
 from app.scrapers.wikimedia import scrape_wikimedia
+from app.scrapers.music import scrape_music
 from app.pipeline.extractor import extract_fragments
 from app.pipeline.ranker import rank_and_filter, rank_and_filter_incremental
 from app.pipeline.composer import compose, compose_incremental, _seed_from_topic
+from app.pipeline.vibe import classify_vibe
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -48,6 +50,11 @@ def task_scrape_enriched_text(self, topic: str) -> list[dict]:
 
 
 @celery_app.task(bind=True)
+def task_scrape_music(self, topic: str) -> list[dict]:
+    return scrape_music(topic)
+
+
+@celery_app.task(bind=True)
 def task_assemble(self, results: list, job_id: str, topic: str) -> None:
     images_data, texts_data, archive_data = results
 
@@ -57,15 +64,15 @@ def task_assemble(self, results: list, job_id: str, topic: str) -> None:
         fragments = extract_fragments(images_data, texts_data, archive_data)
         _update_job(job_id, JobStatus.running, progress=75)
 
-        fragments = rank_and_filter(fragments)
+        vibe = classify_vibe(topic)
+        fragments = rank_and_filter(fragments, vibe=vibe)
         _update_job(job_id, JobStatus.running, progress=88)
 
-        fragments = compose(topic, fragments)
+        fragments = compose(topic, fragments, vibe=vibe)
 
         cache.set_collage(job_id, _build_collage_dict(job_id, topic, fragments))
         _update_job(job_id, JobStatus.done, progress=100)
 
-        # Fire phase 2 immediately — frontend can already render
         task_enrich.delay(job_id, topic)
     except Exception:
         _update_job(job_id, JobStatus.failed, progress=0)
@@ -80,6 +87,7 @@ def task_enrich(self, job_id: str, topic: str) -> None:
         [
             task_scrape_wikimedia.s(topic),
             task_scrape_enriched_text.s(topic),
+            task_scrape_music.s(topic),
         ],
         task_assemble_enrichment.s(job_id, topic),
     )
@@ -88,7 +96,7 @@ def task_enrich(self, job_id: str, topic: str) -> None:
 
 @celery_app.task(bind=True)
 def task_assemble_enrichment(self, results: list, job_id: str, topic: str) -> None:
-    wikimedia_data, enriched_texts = results
+    wikimedia_data, enriched_texts, music_data = results
 
     try:
         existing_collage = cache.get_collage(job_id)
@@ -101,16 +109,17 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str) -> No
             texts=[],
             archive=[],
             wikimedia=wikimedia_data,
-            enriched_texts=enriched_texts,
+            enriched_texts=enriched_texts + music_data,
         )
-        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments)
-        new_fragments = compose_incremental(topic, new_fragments, existing_fragments)
+
+        vibe = classify_vibe(topic)
+        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments, vibe=vibe)
+        new_fragments = compose_incremental(topic, new_fragments, existing_fragments, vibe=vibe)
 
         all_fragments = existing_fragments + new_fragments
         cache.set_collage(job_id, _build_collage_dict(job_id, topic, all_fragments))
         _update_job(job_id, JobStatus.enriched, progress=100)
     except Exception:
-        # Enrichment failure is non-fatal — phase 1 collage remains available
         _update_job(job_id, JobStatus.enriched, progress=100)
         raise
 

@@ -3,7 +3,19 @@ import hashlib
 import httpx
 from app.models import Fragment, FragmentType
 
-TYPE_CAPS = {
+IMAGE_DOMAIN_CAP = 18
+TEXT_DOMAIN_CAP = 4
+
+_SOURCE_ORDER = {"openverse": 0, "wikimedia": 1, "": 2}
+
+_SPARSE_CAPS = {
+    FragmentType.image: 14,
+    FragmentType.headline: 8,
+    FragmentType.snippet: 12,
+    FragmentType.metadata: 3,
+    FragmentType.archive_screenshot: 3,
+}
+_DENSE_CAPS = {
     FragmentType.image: 32,
     FragmentType.headline: 20,
     FragmentType.snippet: 26,
@@ -11,29 +23,30 @@ TYPE_CAPS = {
     FragmentType.archive_screenshot: 8,
 }
 
-# Images from the same source domain are still distinct photos; text from the
-# same domain risks repetition, so keep it tight.
-IMAGE_DOMAIN_CAP = 18
-TEXT_DOMAIN_CAP = 4
 
-# Openverse images are precise/topical — prioritise them
-_SOURCE_ORDER = {"openverse": 0, "wikimedia": 1, "": 2}
+def _vibe_caps(vibe: float) -> dict:
+    return {
+        t: max(1, round(_SPARSE_CAPS[t] + (_DENSE_CAPS[t] - _SPARSE_CAPS[t]) * vibe))
+        for t in FragmentType
+    }
 
 
-def rank_and_filter(fragments: list[Fragment]) -> list[Fragment]:
+def rank_and_filter(fragments: list[Fragment], vibe: float = 0.5) -> list[Fragment]:
+    caps = _vibe_caps(vibe)
     fragments = _dedup(fragments)
     fragments = _sort_images_by_source(fragments)
     fragments = _check_image_links(fragments)
     fragments = _apply_domain_cap(fragments)
-    fragments = _apply_type_caps(fragments)
+    fragments = _apply_type_caps(fragments, caps)
     return fragments
 
 
 def rank_and_filter_incremental(
     new_fragments: list[Fragment],
     existing_fragments: list[Fragment],
+    vibe: float = 0.5,
 ) -> list[Fragment]:
-    """Filter new_fragments against already-placed existing_fragments."""
+    caps = _vibe_caps(vibe)
     existing_hashes = {_content_hash(f) for f in existing_fragments}
     existing_type_counts: dict[FragmentType, int] = {}
     existing_domain_counts: dict[str, int] = {}
@@ -42,13 +55,11 @@ def rank_and_filter_incremental(
         if f.source_domain:
             existing_domain_counts[f.source_domain] = existing_domain_counts.get(f.source_domain, 0) + 1
 
-    # Dedup against existing content
     fresh = [f for f in new_fragments if _content_hash(f) not in existing_hashes]
     fresh = _dedup(fresh)
     fresh = _sort_images_by_source(fresh)
     fresh = _check_image_links(fresh, max_to_check=20)
 
-    # Apply remaining headroom
     out = []
     domain_counts = dict(existing_domain_counts)
     type_counts = dict(existing_type_counts)
@@ -60,7 +71,7 @@ def rank_and_filter_incremental(
         dcap = IMAGE_DOMAIN_CAP if f.type == FragmentType.image else TEXT_DOMAIN_CAP
         if d and domain_counts.get(d, 0) >= dcap:
             continue
-        cap = TYPE_CAPS.get(f.type, 999)
+        cap = caps.get(f.type, 999)
         if type_counts.get(f.type, 0) >= cap:
             continue
         domain_counts[d] = domain_counts.get(d, 0) + 1
@@ -93,13 +104,10 @@ def _sort_images_by_source(fragments: list[Fragment]) -> list[Fragment]:
 
 def _check_image_links(fragments: list[Fragment], max_to_check: int = 35) -> list[Fragment]:
     image_types = {FragmentType.image, FragmentType.archive_screenshot}
-    # Wikimedia blocks server-side HEAD/GET (hotlink protection); browser loads them
-    # fine and onerror cleans up any that fail — skip server-side check entirely.
     wikimedia = [f for f in fragments if f.type in image_types and f.image_source == "wikimedia"]
     to_check = [f for f in fragments if f.type in image_types and f.image_source != "wikimedia"]
     others = [f for f in fragments if f.type not in image_types]
 
-    # Cap how many we validate to avoid serial-HEAD bottleneck
     to_check_limited = to_check[:max_to_check]
     unchecked = to_check[max_to_check:]
 
@@ -133,14 +141,14 @@ def _apply_domain_cap(fragments: list[Fragment]) -> list[Fragment]:
     return out
 
 
-def _apply_type_caps(fragments: list[Fragment]) -> list[Fragment]:
+def _apply_type_caps(fragments: list[Fragment], caps: dict) -> list[Fragment]:
     type_counts: dict[FragmentType, int] = {}
     out = []
     for f in fragments:
         if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
             if len(f.content.strip()) < 6:
                 continue
-        cap = TYPE_CAPS.get(f.type, 999)
+        cap = caps.get(f.type, 999)
         count = type_counts.get(f.type, 0)
         if count < cap:
             type_counts[f.type] = count + 1

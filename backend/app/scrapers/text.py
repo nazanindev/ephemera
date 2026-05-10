@@ -25,10 +25,12 @@ def scrape_text(topic: str, max_results: int = 60) -> list[dict]:
 
 def scrape_text_enriched(topic: str) -> list[dict]:
     """Phase 2 — slower, richer text sources."""
+    from app.scrapers.patents import scrape_patents
     results: list[dict] = []
     results.extend(_fetch_wikiquote(topic))
     results.extend(_fetch_ia_descriptions(topic))
     results.extend(_fetch_wikipedia_deep(topic))
+    results.extend(scrape_patents(topic))
     return results
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import httpx
 from app.scrapers._filters import is_violent
+from app.scrapers.ddg import scrape_ddg_images
 
 OPENVERSE_URL = "https://api.openverse.org/v1/images/"
 
@@ -39,4 +40,6 @@ def scrape_images(topic: str, max_results: int = 40) -> list[dict]:
                 })
         except Exception:
             break
-    return results[:max_results]
+    results = results[:max_results]
+    results += scrape_ddg_images(topic, max_results=2)
+    return results
