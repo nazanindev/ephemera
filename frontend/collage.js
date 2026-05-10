@@ -59,9 +59,15 @@ function pollJob(jobId) {
         await renderCollage(jobId);
         setTimeout(tick, ENRICH_POLL_INTERVAL);
       } else if (status === "enriched") {
-        await enrichCollage(jobId);
-        setStatus("");
-        progressWrap.hidden = true;
+        if (!phase1Done) {
+          // Pipeline finished before we polled — render everything at once
+          phase1Done = true;
+          await renderCollage(jobId);
+        } else {
+          await enrichCollage(jobId);
+          setStatus("");
+          progressWrap.hidden = true;
+        }
       } else if (status === "failed") {
         btn.disabled = false;
         setStatus("pipeline failed. try again.");

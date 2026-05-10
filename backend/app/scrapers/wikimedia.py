@@ -31,7 +31,9 @@ def _search(query: str) -> list[dict]:
                 "gsrnamespace": 6,
                 "gsrlimit": 20,
                 "prop": "imageinfo",
-                "iiprop": "url|size|mime",
+                # thumburl avoids the CDN hotlink block that rejects the full-res url
+                "iiprop": "url|size|mime|thumburl",
+                "iiurlwidth": 800,
                 "format": "json",
             },
             headers=_HEADERS,
@@ -48,17 +50,20 @@ def _search(query: str) -> list[dict]:
             h = ii.get("height", 0)
             if w < _MIN_DIM or h < _MIN_DIM:
                 continue
-            url = ii.get("url", "")
+            # Prefer thumburl — served from a CDN path that allows hotlinking
+            url = ii.get("thumburl") or ii.get("url", "")
             if not url:
                 continue
+            thumb_w = ii.get("thumbwidth") or min(w, 800)
+            thumb_h = ii.get("thumbheight") or int(h * thumb_w / w) if w else h
             title = page.get("title", "").removeprefix("File:")
             source_url = f"https://commons.wikimedia.org/wiki/{page.get('title', '').replace(' ', '_')}"
             results.append({
                 "url": url,
                 "source_url": source_url,
                 "title": title,
-                "width": w,
-                "height": h,
+                "width": thumb_w,
+                "height": thumb_h,
             })
         return results
     except Exception:
