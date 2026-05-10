@@ -10,13 +10,17 @@ const btn = document.getElementById("generate-btn");
 const statusText = document.getElementById("status-text");
 const resetBtn = document.getElementById("reset-btn");
 const exportBtn = document.getElementById("export-btn");
+const rearrangeBtn = document.getElementById("rearrange-btn");
 const progressWrap = document.getElementById("progress-wrap");
 const progressBar = document.getElementById("progress-bar");
+
+let lastCollageData = null;
 
 btn.addEventListener("click", onGenerate);
 input.addEventListener("keydown", (e) => { if (e.key === "Enter") onGenerate(); });
 resetBtn.addEventListener("click", onReset);
 exportBtn.addEventListener("click", onExport);
+rearrangeBtn.addEventListener("click", onRearrange);
 
 async function onGenerate() {
   const topic = input.value.trim();
@@ -102,6 +106,8 @@ async function renderCollage(jobId) {
   const res = await fetch(`${API}/collage/${jobId}`);
   const data = await res.json();
 
+  lastCollageData = data;
+
   canvas.innerHTML = "";
   canvas.style.width = `${data.canvas.width}px`;
   canvas.style.height = `${data.canvas.height}px`;
@@ -120,6 +126,7 @@ async function renderCollage(jobId) {
 async function enrichCollage(jobId) {
   const res = await fetch(`${API}/collage/${jobId}`);
   const data = await res.json();
+  lastCollageData = data;
 
   const existingIds = new Set(
     [...canvas.querySelectorAll(".fragment[data-id]")].map((el) => el.dataset.id)
@@ -231,6 +238,48 @@ function buildFragment(frag) {
   return wrapper;
 }
 
+function onRearrange() {
+  if (!lastCollageData) return;
+  rearrangeBtn.disabled = true;
+
+  const cw = lastCollageData.canvas.width;
+  const ch = lastCollageData.canvas.height;
+
+  const reshuffled = {
+    ...lastCollageData,
+    fragments: lastCollageData.fragments.map((frag) => {
+      if (!frag.layout) return frag;
+      const w = frag.layout.width;
+      const h = frag.layout.height ?? Math.round(w * 0.7);
+      const maxX = Math.max(0, cw - w);
+      const maxY = Math.max(0, ch - h);
+      return {
+        ...frag,
+        layout: {
+          ...frag.layout,
+          x: Math.round(Math.random() * maxX),
+          y: Math.round(Math.random() * maxY),
+          rotation: (Math.random() * 16 - 8).toFixed(2) * 1,
+          z_index: Math.floor(Math.random() * 20) + 1,
+        },
+      };
+    }),
+  };
+
+  lastCollageData = reshuffled;
+  canvas.innerHTML = "";
+
+  for (const frag of reshuffled.fragments) {
+    const el = buildFragment(frag);
+    if (el) {
+      el.classList.add("fragment--incoming");
+      canvas.appendChild(el);
+    }
+  }
+
+  setTimeout(() => { rearrangeBtn.disabled = false; }, 600);
+}
+
 function onReset() {
   canvasScreen.hidden = true;
   promptScreen.hidden = false;
@@ -238,6 +287,7 @@ function onReset() {
   input.value = "";
   btn.disabled = false;
   progressWrap.hidden = true;
+  lastCollageData = null;
   setProgress(0);
   setStatus("");
 }
