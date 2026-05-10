@@ -1,6 +1,7 @@
 from __future__ import annotations
 import httpx
 from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+from app.scrapers._filters import is_violent
 
 _HEADERS = {"User-Agent": "Scrapebook/1.0 (toy project)"}
 _BAD_MIMES = {"image/svg+xml", "image/tiff", "image/x-xcf"}
@@ -58,6 +59,8 @@ def _search(query: str) -> list[dict]:
             thumb_w = ii.get("thumbwidth") or min(w, 800)
             thumb_h = ii.get("thumbheight") or int(h * thumb_w / w) if w else h
             title = page.get("title", "").removeprefix("File:")
+            if is_violent(title):
+                continue
             source_url = f"https://commons.wikimedia.org/wiki/{page.get('title', '').replace(' ', '_')}"
             results.append({
                 "url": url,

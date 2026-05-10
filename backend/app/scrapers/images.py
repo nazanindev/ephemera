@@ -1,5 +1,6 @@
 from __future__ import annotations
 import httpx
+from app.scrapers._filters import is_violent
 
 OPENVERSE_URL = "https://api.openverse.org/v1/images/"
 
@@ -26,6 +27,8 @@ def scrape_images(topic: str, max_results: int = 40) -> list[dict]:
                 w = item.get("width") or 0
                 h = item.get("height") or 0
                 if w and h and (w < 100 or h < 100):
+                    continue
+                if is_violent(item.get("title", "")):
                     continue
                 results.append({
                     "url": url,
