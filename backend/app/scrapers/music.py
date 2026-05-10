@@ -36,7 +36,7 @@ def _fetch_musicbrainz(topic: str) -> list[dict]:
                 "domain": "musicbrainz.org",
                 "og": {"site_name": "MusicBrainz", "published_time": year},
             })
-            for tag in [t["name"] for t in (artist.get("tags") or [])[:3]]:
+            for tag in _good_tags(artist.get("tags") or []):
                 results.append({
                     "title": "",
                     "snippet": "",
@@ -83,12 +83,15 @@ def _fetch_lyrics(topic: str) -> list[dict]:
             f"https://api.lyrics.ovh/suggest/{topic}",
             timeout=8,
         )
-        tracks = resp.json().get("data", [])[:2]
+        tracks = resp.json().get("data", [])[:5]
         results = []
         for track in tracks:
             artist = track.get("artist", {}).get("name", "")
             title = track.get("title", "")
             if not artist or not title:
+                continue
+            # Only use tracks where topic appears in artist name or song title
+            if topic.lower() not in artist.lower() and topic.lower() not in title.lower():
                 continue
             try:
                 lr = httpx.get(
@@ -111,6 +114,26 @@ def _fetch_lyrics(topic: str) -> list[dict]:
         return results
     except Exception:
         return []
+
+
+_NOISE_TAGS = {
+    "united states", "united kingdom", "the netherlands", "australia",
+    "canada", "germany", "france", "sweden", "norway", "ireland",
+    "english", "american", "british", "australian", "european",
+    "male vocalists", "female vocalists", "seen live", "favorites",
+    "all", "albums i own",
+}
+
+
+def _good_tags(tags: list[dict]) -> list[str]:
+    out = []
+    for t in tags:
+        name = t.get("name", "").strip().lower()
+        if name and name not in _NOISE_TAGS and 3 < len(name) <= 30:
+            out.append(name)
+        if len(out) >= 3:
+            break
+    return out
 
 
 def _lyric_fragment(lyrics: str) -> str:

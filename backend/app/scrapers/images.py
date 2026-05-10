@@ -27,7 +27,7 @@ def scrape_images(topic: str, max_results: int = 40) -> list[dict]:
                     continue
                 w = item.get("width") or 0
                 h = item.get("height") or 0
-                if w and h and (w < 100 or h < 100):
+                if w and h and (w < 300 or h < 300):
                     continue
                 if is_violent(item.get("title", "")):
                     continue

@@ -56,6 +56,8 @@ def _fetch_wikipedia(topic: str) -> list[dict]:
             snippet = (item.get("snippet", "")
                        .replace('<span class="searchmatch">', "")
                        .replace("</span>", ""))
+            if not _topic_as_whole_word(topic, title, snippet):
+                continue
             url = f"https://en.wikipedia.org/wiki/{title.replace(' ', '_')}"
             results.append({
                 "title": title,

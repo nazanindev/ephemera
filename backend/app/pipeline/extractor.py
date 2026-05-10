@@ -6,7 +6,14 @@ _GENERIC_SITES = {
     "wikipedia", "hacker news", "hackernews", "reddit", "youtube",
     "medium", "substack", "wordpress", "blogspot", "tumblr",
     "github", "twitter", "x.com", "quora", "pinterest",
-    "internet archive",
+    "internet archive", "musicbrainz", "patent", "lyrics.ovh",
+}
+
+# MusicBrainz tags that are geography/language, not useful as collage text
+_MB_NOISE_TAGS = {
+    "united states", "united kingdom", "the netherlands", "australia",
+    "canada", "germany", "france", "sweden", "norway", "ireland",
+    "english", "american", "british", "australian", "european",
 }
 
 
@@ -143,9 +150,12 @@ def _extract_metadata_fragments(item: dict, domain: str, og: dict) -> list[Fragm
                 source_domain=domain,
             ))
 
-    # 4. Site name — only if non-generic and we didn't already emit a subreddit
+    # 4. Site name — only if non-generic, non-noise, and we didn't already emit a subreddit
     site_name = og.get("site_name", "")
-    if site_name and not emitted_subreddit and site_name.lower() not in _GENERIC_SITES and len(site_name) > 3:
+    if site_name and not emitted_subreddit \
+            and site_name.lower() not in _GENERIC_SITES \
+            and site_name.lower() not in _MB_NOISE_TAGS \
+            and len(site_name) > 3:
         frags.append(Fragment(
             type=FragmentType.metadata,
             content=site_name,

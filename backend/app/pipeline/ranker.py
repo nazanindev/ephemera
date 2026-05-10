@@ -65,7 +65,7 @@ def rank_and_filter_incremental(
     type_counts = dict(existing_type_counts)
     for f in fresh:
         if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
-            if len(f.content.strip()) < 6:
+            if len(f.content.strip()) < 15:
                 continue
         d = f.source_domain
         dcap = IMAGE_DOMAIN_CAP if f.type == FragmentType.image else TEXT_DOMAIN_CAP
@@ -146,7 +146,7 @@ def _apply_type_caps(fragments: list[Fragment], caps: dict) -> list[Fragment]:
     out = []
     for f in fragments:
         if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
-            if len(f.content.strip()) < 6:
+            if len(f.content.strip()) < 15:
                 continue
         cap = caps.get(f.type, 999)
         count = type_counts.get(f.type, 0)
