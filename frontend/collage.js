@@ -312,14 +312,29 @@ async function onExport() {
   exportBtn.disabled = true;
   exportBtn.textContent = "rendering...";
   try {
-    const canvasEl = await html2canvas(canvas, {
-      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#ede5d8",
-      useCORS: true,
-      allowTaint: false,
-      scale: 1,
-      width: canvas.offsetWidth,
-      height: canvas.offsetHeight,
+    // html2canvas doesn't support mix-blend-mode — clone and strip it so
+    // multiply-blended fragments don't render as transparent
+    const clone = canvas.cloneNode(true);
+    clone.style.cssText = canvas.style.cssText;
+    clone.style.position = "absolute";
+    clone.style.left = "-9999px";
+    clone.style.top = "0";
+    document.body.appendChild(clone);
+    clone.querySelectorAll(".fragment").forEach(el => {
+      el.style.mixBlendMode = "normal";
     });
+
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#ede5d8";
+    const canvasEl = await html2canvas(clone, {
+      backgroundColor: bg,
+      useCORS: true,
+      allowTaint: true,
+      scale: 1,
+      width: clone.offsetWidth,
+      height: clone.offsetHeight,
+    });
+    document.body.removeChild(clone);
+
     const topic = (input.value.trim() || "scrapebook").replace(/\s+/g, "-").toLowerCase();
     const link = document.createElement("a");
     link.download = `${topic}.png`;
