@@ -1,4 +1,4 @@
-const API = "http://localhost:8000";
+const API = window.SCRAPEBOOK_API_URL || "http://localhost:8000";
 const POLL_INTERVAL = 1500;
 
 const promptScreen = document.getElementById("prompt-screen");
