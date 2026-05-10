@@ -231,8 +231,8 @@ def _layout_fragment(
     )
 
 
-def compose(topic: str, fragments: list[Fragment], vibe: float = 0.5, density: str | None = None) -> list[Fragment]:
-    seed = _seed_from_topic(topic)
+def compose(topic: str, fragments: list[Fragment], vibe: float = 0.5, density: str | None = None, layout_seed: int | None = None) -> list[Fragment]:
+    seed = _seed_from_topic(topic) ^ (layout_seed if layout_seed is not None else 0)
     rng = random.Random(seed)
     params = _make_vibe_params(vibe)
 
@@ -265,8 +265,9 @@ def compose_incremental(
     existing_fragments: list[Fragment],
     vibe: float = 0.5,
     density: str | None = None,
+    layout_seed: int | None = None,
 ) -> list[Fragment]:
-    seed = _seed_from_topic(topic + "_enrich")
+    seed = _seed_from_topic(topic + "_enrich") ^ (layout_seed if layout_seed is not None else 0)
     rng = random.Random(seed)
     params = _make_vibe_params(vibe)
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+import random
 import httpx
 from app.models import Fragment, FragmentType
 
@@ -39,19 +40,32 @@ _USER_DENSE_CAPS = {
 }
 
 
-def _resolve_caps(vibe: float, density: str | None) -> dict:
+def _resolve_caps(vibe: float, density: str | None, layout_seed: int | None = None) -> dict:
     if density == "sparse":
-        return _USER_SPARSE_CAPS
-    if density == "dense":
-        return _USER_DENSE_CAPS
-    return {
-        t: max(1, round(_SPARSE_CAPS[t] + (_DENSE_CAPS[t] - _SPARSE_CAPS[t]) * vibe))
-        for t in FragmentType
-    }
+        base = dict(_USER_SPARSE_CAPS)
+    elif density == "dense":
+        base = dict(_USER_DENSE_CAPS)
+    else:
+        base = {
+            t: max(1, round(_SPARSE_CAPS[t] + (_DENSE_CAPS[t] - _SPARSE_CAPS[t]) * vibe))
+            for t in FragmentType
+        }
+    if layout_seed is not None:
+        rng = random.Random(layout_seed ^ 0xCAFE)
+        return {
+            t: max(1, v + rng.randint(-max(1, v // 5), max(1, v // 5)))
+            for t, v in base.items()
+        }
+    return base
 
 
-def rank_and_filter(fragments: list[Fragment], vibe: float = 0.5, density: str | None = None) -> list[Fragment]:
-    caps = _resolve_caps(vibe, density)
+def rank_and_filter(
+    fragments: list[Fragment],
+    vibe: float = 0.5,
+    density: str | None = None,
+    layout_seed: int | None = None,
+) -> list[Fragment]:
+    caps = _resolve_caps(vibe, density, layout_seed)
     fragments = _dedup(fragments)
     fragments = _sort_images_by_source(fragments)
     fragments = _check_image_links(fragments)
@@ -65,8 +79,9 @@ def rank_and_filter_incremental(
     existing_fragments: list[Fragment],
     vibe: float = 0.5,
     density: str | None = None,
+    layout_seed: int | None = None,
 ) -> list[Fragment]:
-    caps = _resolve_caps(vibe, density)
+    caps = _resolve_caps(vibe, density, layout_seed)
     existing_hashes = {_content_hash(f) for f in existing_fragments}
     existing_type_counts: dict[FragmentType, int] = {}
     existing_domain_counts: dict[str, int] = {}

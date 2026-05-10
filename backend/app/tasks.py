@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import random as _random
 from celery import Celery, chord
 from app import cache
 from app.models import Fragment, JobStatus
@@ -64,11 +65,12 @@ def task_assemble(self, results: list, job_id: str, topic: str, density: str | N
         fragments = extract_fragments(images_data, texts_data, archive_data)
         _update_job(job_id, JobStatus.running, progress=75)
 
+        layout_seed = _random.randint(0, 2**31 - 1)
         vibe = classify_vibe(topic)
-        fragments = rank_and_filter(fragments, vibe=vibe, density=density)
+        fragments = rank_and_filter(fragments, vibe=vibe, density=density, layout_seed=layout_seed)
         _update_job(job_id, JobStatus.running, progress=88)
 
-        fragments = compose(topic, fragments, vibe=vibe, density=density)
+        fragments = compose(topic, fragments, vibe=vibe, density=density, layout_seed=layout_seed)
 
         cache.set_collage(job_id, _build_collage_dict(job_id, topic, fragments))
         cache.set_topic_cache(topic, job_id, density)
@@ -113,9 +115,10 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str, densi
             enriched_texts=enriched_texts + music_data,
         )
 
+        layout_seed = _random.randint(0, 2**31 - 1)
         vibe = classify_vibe(topic)
-        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments, vibe=vibe, density=density)
-        new_fragments = compose_incremental(topic, new_fragments, existing_fragments, vibe=vibe, density=density)
+        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments, vibe=vibe, density=density, layout_seed=layout_seed)
+        new_fragments = compose_incremental(topic, new_fragments, existing_fragments, vibe=vibe, density=density, layout_seed=layout_seed)
 
         all_fragments = existing_fragments + new_fragments
         cache.set_collage(job_id, _build_collage_dict(job_id, topic, all_fragments))
