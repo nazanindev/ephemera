@@ -1,5 +1,5 @@
 Enter a topic
-<img width="3454" height="1936" alt="image" src="https://github.com/user-attachments/assets/0b5a228b-2fc0-45bf-8007-8b0a4eed1295" />
+<img width="2410" height="1092" alt="image" src="https://github.com/user-attachments/assets/1fa2fb05-0565-47d6-8816-1c3d0387d511" />
 
 Get a collage
 
