@@ -128,6 +128,25 @@ html, body {
 
 #reset-btn:hover { color: var(--fg); border-color: var(--accent); }
 
+#export-btn {
+  position: fixed;
+  bottom: 1.2rem;
+  left: 8rem;
+  background: transparent;
+  border: 1px solid var(--dim);
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  z-index: 9999;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+#export-btn:hover { color: var(--fg); border-color: var(--accent); }
+#export-btn:disabled { opacity: 0.4; cursor: default; }
+
 /* ── fragment base ── */
 
 .fragment {

@@ -9,12 +9,14 @@ const input = document.getElementById("topic-input");
 const btn = document.getElementById("generate-btn");
 const statusText = document.getElementById("status-text");
 const resetBtn = document.getElementById("reset-btn");
+const exportBtn = document.getElementById("export-btn");
 const progressWrap = document.getElementById("progress-wrap");
 const progressBar = document.getElementById("progress-bar");
 
 btn.addEventListener("click", onGenerate);
 input.addEventListener("keydown", (e) => { if (e.key === "Enter") onGenerate(); });
 resetBtn.addEventListener("click", onReset);
+exportBtn.addEventListener("click", onExport);
 
 async function onGenerate() {
   const topic = input.value.trim();
@@ -238,6 +240,31 @@ function onReset() {
   progressWrap.hidden = true;
   setProgress(0);
   setStatus("");
+}
+
+async function onExport() {
+  exportBtn.disabled = true;
+  exportBtn.textContent = "rendering...";
+  try {
+    const canvasEl = await html2canvas(canvas, {
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#ede5d8",
+      useCORS: true,
+      allowTaint: false,
+      scale: 1,
+      width: canvas.offsetWidth,
+      height: canvas.offsetHeight,
+    });
+    const topic = (input.value.trim() || "scrapebook").replace(/\s+/g, "-").toLowerCase();
+    const link = document.createElement("a");
+    link.download = `${topic}.png`;
+    link.href = canvasEl.toDataURL("image/png");
+    link.click();
+  } catch (err) {
+    console.error("export failed", err);
+  } finally {
+    exportBtn.disabled = false;
+    exportBtn.textContent = "↓ save png";
+  }
 }
 
 function setProgress(pct) {
