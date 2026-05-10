@@ -1,4 +1,5 @@
 from __future__ import annotations
+import copy
 import hashlib
 import random
 from app.models import Fragment, FragmentLayout, FragmentType
@@ -47,6 +48,12 @@ TEXT_BLENDS = ["normal", "normal", "multiply"]
 TEXT_COLORS = ["", "", "", "", "#ffffff", "#ffffff", "#f0e6d3", "#1a1208"]
 
 _TEXT_TYPES = {FragmentType.headline, FragmentType.snippet, FragmentType.metadata}
+_IMAGE_TYPES = {FragmentType.image, FragmentType.archive_screenshot}
+
+# Full-overlap threshold: stop trying if best candidate is below this ratio
+_OVERLAP_GOOD_ENOUGH = 0.35
+# Max attempts per image fragment to find a low-overlap position
+_PLACEMENT_ATTEMPTS = 6
 
 
 def _seed_from_topic(topic: str) -> int:
@@ -72,13 +79,12 @@ def _pick_size(rng: random.Random, ftype: FragmentType) -> int:
 
 def _pick_rotation(rng: random.Random, ftype: FragmentType) -> float:
     if ftype == FragmentType.metadata:
-        # metadata gets extreme rotations
         return rng.choice([-18, -12, 12, 18, -8, 8])
     return rng.choices(ROTATION_POOL, weights=ROTATION_WEIGHTS, k=1)[0]
 
 
 def _pick_z(rng: random.Random, ftype: FragmentType) -> int:
-    if ftype in (FragmentType.image, FragmentType.archive_screenshot):
+    if ftype in _IMAGE_TYPES:
         return rng.randint(1, 20)
     if ftype in (FragmentType.headline, FragmentType.snippet):
         return rng.randint(15, 35)
@@ -106,12 +112,16 @@ def _sparse_position(rng: random.Random, placed_boxes: list[dict], width: int, h
     cell_w = CANVAS_W / GRID_COLS
     cell_h = CANVAS_H / GRID_ROWS
 
-    # Count fragment centers per cell
+    # Mark every cell each fragment *covers* (not just its centre cell)
     coverage = [[0] * GRID_ROWS for _ in range(GRID_COLS)]
     for box in placed_boxes:
-        ci = min(int((box["x"] + box["w"] / 2) / cell_w), GRID_COLS - 1)
-        ri = min(int((box["y"] + box["h"] / 2) / cell_h), GRID_ROWS - 1)
-        coverage[ci][ri] += 1
+        c1 = max(0, int(box["x"] / cell_w))
+        r1 = max(0, int(box["y"] / cell_h))
+        c2 = min(GRID_COLS - 1, int((box["x"] + box["w"]) / cell_w))
+        r2 = min(GRID_ROWS - 1, int((box["y"] + box["h"]) / cell_h))
+        for ci in range(c1, c2 + 1):
+            for ri in range(r1, r2 + 1):
+                coverage[ci][ri] += 1
 
     min_cov = min(coverage[c][r] for c in range(GRID_COLS) for r in range(GRID_ROWS))
     sparse = [(c, r) for c in range(GRID_COLS) for r in range(GRID_ROWS)
@@ -123,6 +133,111 @@ def _sparse_position(rng: random.Random, placed_boxes: list[dict], width: int, h
     x = max(0.0, min(x, CANVAS_W - width))
     y = max(0.0, min(y, CANVAS_H - height))
     return x, y
+
+
+def _image_overlap_score(x: float, y: float, w: int, h: int, placed_boxes: list[dict]) -> float:
+    """Return the worst overlap ratio (fraction of the smaller rect) against any existing image box."""
+    ax1, ay1, ax2, ay2 = x, y, x + w, y + h
+    worst = 0.0
+    for box in placed_boxes:
+        if not box.get("is_image"):
+            continue
+        bx1, by1 = box["x"], box["y"]
+        bx2, by2 = bx1 + box["w"], by1 + box["h"]
+        ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+        ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+        if ix2 <= ix1 or iy2 <= iy1:
+            continue
+        intersection = (ix2 - ix1) * (iy2 - iy1)
+        smaller = min(w * h, box["w"] * box["h"])
+        if smaller > 0:
+            worst = max(worst, intersection / smaller)
+    return worst
+
+
+def _place_fragment(
+    rng: random.Random,
+    placed_boxes: list[dict],
+    width: int,
+    height: int,
+    is_image: bool,
+) -> tuple[float, float]:
+    """Place a fragment, trying multiple positions for images to minimise overlap."""
+    if not is_image:
+        return _sparse_position(rng, placed_boxes, width, height)
+
+    best_pos = None
+    best_score = 1.1
+    for _ in range(_PLACEMENT_ATTEMPTS):
+        cx, cy = _sparse_position(rng, placed_boxes, width, height)
+        score = _image_overlap_score(cx, cy, width, height, placed_boxes)
+        if score < best_score:
+            best_score = score
+            best_pos = (cx, cy)
+        if best_score < _OVERLAP_GOOD_ENOUGH:
+            break
+    return best_pos  # type: ignore[return-value]
+
+
+def _layout_fragment(
+    rng: random.Random,
+    frag: Fragment,
+    placed_boxes: list[dict],
+    is_repeat: bool = False,
+) -> None:
+    width = _pick_size(rng, frag.type)
+    if frag.type in _IMAGE_TYPES:
+        width = rng.randint(120, 240) if is_repeat else min(width, MAX_IMAGE_WIDTH)
+    height = int(width * rng.uniform(0.55, 1.2)) if frag.type in _IMAGE_TYPES \
+        else int(width * rng.uniform(0.25, 0.7))
+
+    rotation = _pick_rotation(rng, frag.type)
+    z = _pick_z(rng, frag.type)
+    css_filter, blend_mode = _pick_effects(rng, frag.type)
+    text_color = _pick_text_color(rng, frag.type)
+
+    is_image = frag.type in _IMAGE_TYPES and not is_repeat
+    x_px, y_px = _place_fragment(rng, placed_boxes, width, height, is_image)
+    placed_boxes.append({"x": x_px, "y": y_px, "w": width, "h": height, "is_image": is_image})
+
+    frag.layout = FragmentLayout(
+        x=round(x_px, 2),
+        y=round(y_px, 2),
+        width=width,
+        height=height,
+        rotation=rotation,
+        z_index=z,
+        css_filter=css_filter,
+        blend_mode=blend_mode,
+        text_color=text_color,
+    )
+
+
+def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
+    seed = _seed_from_topic(topic)
+    rng = random.Random(seed)
+
+    placed_boxes: list[dict] = []
+
+    priority = [f for f in fragments if f.type in _IMAGE_TYPES]
+    rest = [f for f in fragments if f.type not in _IMAGE_TYPES]
+    rng.shuffle(priority)
+    rng.shuffle(rest)
+
+    # Repeat 1–2 anchor images as smaller echoes (photocopied motif)
+    repeats = []
+    if len(priority) >= 2:
+        n_repeats = rng.randint(1, min(2, len(priority) - 1))
+        for i in range(n_repeats):
+            r = copy.deepcopy(priority[i])
+            r.og = {**r.og, "_repeat": True}
+            repeats.append(r)
+
+    ordered = priority + rest + repeats
+    for frag in ordered:
+        _layout_fragment(rng, frag, placed_boxes, is_repeat=frag.og.get("_repeat", False))
+
+    return ordered
 
 
 def compose_incremental(
@@ -138,100 +253,21 @@ def compose_incremental(
     placed_boxes: list[dict] = []
     for f in existing_fragments:
         if f.layout:
+            is_img = f.type in _IMAGE_TYPES
             placed_boxes.append({
                 "x": f.layout.x,
                 "y": f.layout.y,
                 "w": f.layout.width,
                 "h": f.layout.height,
+                "is_image": is_img,
             })
 
-    priority = [f for f in new_fragments if f.type in (FragmentType.image, FragmentType.archive_screenshot)]
-    rest = [f for f in new_fragments if f.type not in (FragmentType.image, FragmentType.archive_screenshot)]
+    priority = [f for f in new_fragments if f.type in _IMAGE_TYPES]
+    rest = [f for f in new_fragments if f.type not in _IMAGE_TYPES]
     rng.shuffle(priority)
     rng.shuffle(rest)
 
     for frag in priority + rest:
-        width = _pick_size(rng, frag.type)
-        if frag.type in (FragmentType.image, FragmentType.archive_screenshot):
-            width = min(width, MAX_IMAGE_WIDTH)
-        height = int(width * rng.uniform(0.55, 1.2)) if frag.type in (
-            FragmentType.image, FragmentType.archive_screenshot
-        ) else int(width * rng.uniform(0.25, 0.7))
-
-        rotation = _pick_rotation(rng, frag.type)
-        z = _pick_z(rng, frag.type)
-        css_filter, blend_mode = _pick_effects(rng, frag.type)
-        text_color = _pick_text_color(rng, frag.type)
-
-        x_px, y_px = _sparse_position(rng, placed_boxes, width, height)
-        placed_boxes.append({"x": x_px, "y": y_px, "w": width, "h": height})
-
-        frag.layout = FragmentLayout(
-            x=round(x_px, 2),
-            y=round(y_px, 2),
-            width=width,
-            height=height,
-            rotation=rotation,
-            z_index=z,
-            css_filter=css_filter,
-            blend_mode=blend_mode,
-            text_color=text_color,
-        )
+        _layout_fragment(rng, frag, placed_boxes)
 
     return priority + rest
-
-
-def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
-    seed = _seed_from_topic(topic)
-    rng = random.Random(seed)
-
-    placed_boxes: list[dict] = []
-
-    # Images/archive first for visual anchoring, then text
-    priority = [f for f in fragments if f.type in (FragmentType.image, FragmentType.archive_screenshot)]
-    rest = [f for f in fragments if f.type not in (FragmentType.image, FragmentType.archive_screenshot)]
-    rng.shuffle(priority)
-    rng.shuffle(rest)
-
-    # Repeat 1–2 anchor images as smaller echoes (photocopied motif)
-    import copy
-    repeats = []
-    if len(priority) >= 2:
-        n_repeats = rng.randint(1, min(2, len(priority) - 1))
-        for i in range(n_repeats):
-            r = copy.deepcopy(priority[i])
-            r.og = {**r.og, "_repeat": True}
-            repeats.append(r)
-
-    ordered = priority + rest + repeats
-
-    for frag in ordered:
-        is_repeat = frag.og.get("_repeat", False)
-        width = _pick_size(rng, frag.type)
-        if frag.type in (FragmentType.image, FragmentType.archive_screenshot):
-            width = rng.randint(120, 240) if is_repeat else min(width, MAX_IMAGE_WIDTH)
-        height = int(width * rng.uniform(0.55, 1.2)) if frag.type in (
-            FragmentType.image, FragmentType.archive_screenshot
-        ) else int(width * rng.uniform(0.25, 0.7))
-
-        rotation = _pick_rotation(rng, frag.type)
-        z = _pick_z(rng, frag.type)
-        css_filter, blend_mode = _pick_effects(rng, frag.type)
-        text_color = _pick_text_color(rng, frag.type)
-
-        x_px, y_px = _sparse_position(rng, placed_boxes, width, height)
-        placed_boxes.append({"x": x_px, "y": y_px, "w": width, "h": height})
-
-        frag.layout = FragmentLayout(
-            x=round(x_px, 2),
-            y=round(y_px, 2),
-            width=width,
-            height=height,
-            rotation=rotation,
-            z_index=z,
-            css_filter=css_filter,
-            blend_mode=blend_mode,
-            text_color=text_color,
-        )
-
-    return ordered
