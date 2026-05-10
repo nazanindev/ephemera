@@ -192,3 +192,20 @@ html, body {
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
+
+/* ── enrichment arrival animation ── */
+
+@keyframes fragmentArrive {
+  from {
+    opacity: 0;
+    transform: rotate(var(--frag-rotation, 0deg)) scale(0.88) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--frag-rotation, 0deg)) scale(1) translateY(0);
+  }
+}
+
+.fragment--incoming {
+  animation: fragmentArrive 0.7s ease-out forwards;
+}

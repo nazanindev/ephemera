@@ -1,5 +1,6 @@
 const API = window.SCRAPEBOOK_API_URL || "http://localhost:8000";
 const POLL_INTERVAL = 1500;
+const ENRICH_POLL_INTERVAL = 3000;
 
 const promptScreen = document.getElementById("prompt-screen");
 const canvasScreen = document.getElementById("canvas-screen");
@@ -40,34 +41,45 @@ async function onGenerate() {
 }
 
 function pollJob(jobId) {
-  const interval = setInterval(async () => {
+  let phase1Done = false;
+
+  async function tick() {
     try {
       const res = await fetch(`${API}/job/${jobId}`);
       if (!res.ok) throw new Error();
       const { status, progress } = await res.json();
 
-      setProgress(progress);
-      const labels = {
-        pending: "waiting...",
-        running: progressLabel(progress),
-        done: "rendering...",
-        failed: "pipeline failed. try again.",
-      };
-      setStatus(labels[status] ?? status);
+      if (!phase1Done) {
+        setProgress(progress);
+        setStatus(progressLabel(progress));
+      }
 
-      if (status === "done") {
-        clearInterval(interval);
+      if (status === "done" && !phase1Done) {
+        phase1Done = true;
         await renderCollage(jobId);
+        setTimeout(tick, ENRICH_POLL_INTERVAL);
+      } else if (status === "enriched") {
+        await enrichCollage(jobId);
+        setStatus("");
+        progressWrap.hidden = true;
       } else if (status === "failed") {
-        clearInterval(interval);
         btn.disabled = false;
+        setStatus("pipeline failed. try again.");
+      } else if (status === "running" && phase1Done) {
+        setStatus("adding more...");
+        setTimeout(tick, ENRICH_POLL_INTERVAL);
+      } else {
+        setTimeout(tick, POLL_INTERVAL);
       }
     } catch {
-      clearInterval(interval);
-      setStatus("lost connection.");
-      btn.disabled = false;
+      if (!phase1Done) {
+        setStatus("lost connection.");
+        btn.disabled = false;
+      }
     }
-  }, POLL_INTERVAL);
+  }
+
+  setTimeout(tick, POLL_INTERVAL);
 }
 
 function progressLabel(p) {
@@ -93,20 +105,41 @@ async function renderCollage(jobId) {
 
   promptScreen.hidden = true;
   canvasScreen.hidden = false;
+  progressWrap.hidden = true;
+  setStatus("");
+}
+
+async function enrichCollage(jobId) {
+  const res = await fetch(`${API}/collage/${jobId}`);
+  const data = await res.json();
+
+  const existingIds = new Set(
+    [...canvas.querySelectorAll(".fragment[data-id]")].map((el) => el.dataset.id)
+  );
+
+  for (const frag of data.fragments) {
+    if (existingIds.has(frag.id)) continue;
+    const el = buildFragment(frag);
+    if (!el) continue;
+    el.classList.add("fragment--incoming");
+    canvas.appendChild(el);
+  }
 }
 
 function buildFragment(frag) {
-  const { layout, type, content, source_url, og, captured_at } = frag;
+  const { id, layout, type, content, source_url, og, captured_at } = frag;
   if (!layout) return null;
 
   const { x, y, width, rotation, z_index, css_filter, blend_mode } = layout;
 
   const wrapper = document.createElement("div");
   wrapper.className = "fragment";
+  wrapper.dataset.id = id;
   wrapper.style.cssText = [
     `left: ${x}px`,
     `top: ${y}px`,
     `width: ${width}px`,
+    `--frag-rotation: ${rotation}deg`,
     `transform: rotate(${rotation}deg)`,
     `z-index: ${z_index}`,
     css_filter ? `filter: ${css_filter}` : "",

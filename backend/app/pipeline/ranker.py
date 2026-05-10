@@ -3,25 +3,66 @@ import hashlib
 import httpx
 from app.models import Fragment, FragmentType
 
-# Max fragments per type in final collage
 TYPE_CAPS = {
     FragmentType.image: 20,
     FragmentType.headline: 16,
-    FragmentType.snippet: 12,
-    FragmentType.metadata: 6,
+    FragmentType.snippet: 18,
+    FragmentType.metadata: 4,
     FragmentType.archive_screenshot: 6,
 }
 
-# Max fragments from a single domain
 DOMAIN_CAP = 4
+
+# Openverse images are precise/topical — prioritise them
+_SOURCE_ORDER = {"openverse": 0, "wikimedia": 1, "": 2}
 
 
 def rank_and_filter(fragments: list[Fragment]) -> list[Fragment]:
     fragments = _dedup(fragments)
+    fragments = _sort_images_by_source(fragments)
     fragments = _check_image_links(fragments)
     fragments = _apply_domain_cap(fragments)
     fragments = _apply_type_caps(fragments)
     return fragments
+
+
+def rank_and_filter_incremental(
+    new_fragments: list[Fragment],
+    existing_fragments: list[Fragment],
+) -> list[Fragment]:
+    """Filter new_fragments against already-placed existing_fragments."""
+    existing_hashes = {_content_hash(f) for f in existing_fragments}
+    existing_type_counts: dict[FragmentType, int] = {}
+    existing_domain_counts: dict[str, int] = {}
+    for f in existing_fragments:
+        existing_type_counts[f.type] = existing_type_counts.get(f.type, 0) + 1
+        if f.source_domain:
+            existing_domain_counts[f.source_domain] = existing_domain_counts.get(f.source_domain, 0) + 1
+
+    # Dedup against existing content
+    fresh = [f for f in new_fragments if _content_hash(f) not in existing_hashes]
+    fresh = _dedup(fresh)
+    fresh = _sort_images_by_source(fresh)
+    fresh = _check_image_links(fresh, max_to_check=20)
+
+    # Apply remaining headroom
+    out = []
+    domain_counts = dict(existing_domain_counts)
+    type_counts = dict(existing_type_counts)
+    for f in fresh:
+        if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
+            if len(f.content.strip()) < 6:
+                continue
+        d = f.source_domain
+        if d and domain_counts.get(d, 0) >= DOMAIN_CAP:
+            continue
+        cap = TYPE_CAPS.get(f.type, 999)
+        if type_counts.get(f.type, 0) >= cap:
+            continue
+        domain_counts[d] = domain_counts.get(d, 0) + 1
+        type_counts[f.type] = type_counts.get(f.type, 0) + 1
+        out.append(f)
+    return out
 
 
 def _content_hash(f: Fragment) -> str:
@@ -39,27 +80,37 @@ def _dedup(fragments: list[Fragment]) -> list[Fragment]:
     return out
 
 
-def _check_image_links(fragments: list[Fragment]) -> list[Fragment]:
+def _sort_images_by_source(fragments: list[Fragment]) -> list[Fragment]:
+    images = [f for f in fragments if f.type == FragmentType.image]
+    others = [f for f in fragments if f.type != FragmentType.image]
+    images.sort(key=lambda f: _SOURCE_ORDER.get(f.image_source, 2))
+    return images + others
+
+
+def _check_image_links(fragments: list[Fragment], max_to_check: int = 35) -> list[Fragment]:
     image_types = {FragmentType.image, FragmentType.archive_screenshot}
     to_check = [f for f in fragments if f.type in image_types]
     others = [f for f in fragments if f.type not in image_types]
 
+    # Cap how many we validate to avoid serial-HEAD bottleneck
+    to_check_limited = to_check[:max_to_check]
+    unchecked = to_check[max_to_check:]
+
     valid = []
     with httpx.Client(timeout=5, follow_redirects=True) as client:
-        for f in to_check:
+        for f in to_check_limited:
             try:
                 resp = client.head(f.content)
                 if resp.status_code < 400:
                     valid.append(f)
                     continue
-                # Some CDNs reject HEAD — fall back to a range GET
                 resp = client.get(f.content, headers={"Range": "bytes=0-0"})
                 if resp.status_code < 400 or resp.status_code == 416:
                     valid.append(f)
             except Exception:
                 pass
 
-    return valid + others
+    return valid + unchecked + others
 
 
 def _apply_domain_cap(fragments: list[Fragment]) -> list[Fragment]:
@@ -78,7 +129,6 @@ def _apply_type_caps(fragments: list[Fragment]) -> list[Fragment]:
     type_counts: dict[FragmentType, int] = {}
     out = []
     for f in fragments:
-        # Drop noise: very short text fragments
         if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
             if len(f.content.strip()) < 6:
                 continue

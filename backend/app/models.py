@@ -17,6 +17,7 @@ class JobStatus(str, Enum):
     pending = "pending"
     running = "running"
     done = "done"
+    enriched = "enriched"
     failed = "failed"
 
 
@@ -37,6 +38,7 @@ class Fragment(BaseModel):
     content: str  # URL for images/archive, raw text for text types
     source_url: str = ""
     source_domain: str = ""
+    image_source: str = ""  # "openverse" | "wikimedia" | ""
     captured_at: str | None = None
     og: dict[str, Any] = Field(default_factory=dict)
     layout: FragmentLayout | None = None

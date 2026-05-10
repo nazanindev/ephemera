@@ -113,6 +113,60 @@ def _sparse_position(rng: random.Random, placed_boxes: list[dict], width: int, h
     return x, y
 
 
+def compose_incremental(
+    topic: str,
+    new_fragments: list[Fragment],
+    existing_fragments: list[Fragment],
+) -> list[Fragment]:
+    """Place new_fragments into gaps left by existing_fragments."""
+    seed = _seed_from_topic(topic + "_enrich")
+    rng = random.Random(seed)
+
+    # Pre-populate placed_boxes from existing layouts
+    placed_boxes: list[dict] = []
+    for f in existing_fragments:
+        if f.layout:
+            placed_boxes.append({
+                "x": f.layout.x,
+                "y": f.layout.y,
+                "w": f.layout.width,
+                "h": f.layout.height,
+            })
+
+    priority = [f for f in new_fragments if f.type in (FragmentType.image, FragmentType.archive_screenshot)]
+    rest = [f for f in new_fragments if f.type not in (FragmentType.image, FragmentType.archive_screenshot)]
+    rng.shuffle(priority)
+    rng.shuffle(rest)
+
+    for frag in priority + rest:
+        width = _pick_size(rng, frag.type)
+        if frag.type in (FragmentType.image, FragmentType.archive_screenshot):
+            width = min(width, MAX_IMAGE_WIDTH)
+        height = int(width * rng.uniform(0.55, 1.2)) if frag.type in (
+            FragmentType.image, FragmentType.archive_screenshot
+        ) else int(width * rng.uniform(0.25, 0.7))
+
+        rotation = _pick_rotation(rng, frag.type)
+        z = _pick_z(rng, frag.type)
+        css_filter, blend_mode = _pick_effects(rng, frag.type)
+
+        x_px, y_px = _sparse_position(rng, placed_boxes, width, height)
+        placed_boxes.append({"x": x_px, "y": y_px, "w": width, "h": height})
+
+        frag.layout = FragmentLayout(
+            x=round(x_px, 2),
+            y=round(y_px, 2),
+            width=width,
+            height=height,
+            rotation=rotation,
+            z_index=z,
+            css_filter=css_filter,
+            blend_mode=blend_mode,
+        )
+
+    return priority + rest
+
+
 def compose(topic: str, fragments: list[Fragment]) -> list[Fragment]:
     seed = _seed_from_topic(topic)
     rng = random.Random(seed)

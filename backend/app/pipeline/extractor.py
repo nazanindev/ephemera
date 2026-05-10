@@ -2,11 +2,20 @@ from __future__ import annotations
 from urllib.parse import urlparse
 from app.models import Fragment, FragmentType
 
+_GENERIC_SITES = {
+    "wikipedia", "hacker news", "hackernews", "reddit", "youtube",
+    "medium", "substack", "wordpress", "blogspot", "tumblr",
+    "github", "twitter", "x.com", "quora", "pinterest",
+    "internet archive",
+}
+
 
 def extract_fragments(
     images: list[dict],
     texts: list[dict],
     archive: list[dict],
+    wikimedia: list[dict] | None = None,
+    enriched_texts: list[dict] | None = None,
 ) -> list[Fragment]:
     fragments: list[Fragment] = []
 
@@ -16,9 +25,20 @@ def extract_fragments(
             content=img["url"],
             source_url=img.get("source_url", ""),
             source_domain=urlparse(img.get("source_url", "")).netloc,
+            image_source="openverse",
         ))
 
-    for item in texts:
+    for img in (wikimedia or []):
+        fragments.append(Fragment(
+            type=FragmentType.image,
+            content=img["url"],
+            source_url=img.get("source_url", ""),
+            source_domain=urlparse(img.get("source_url", "")).netloc,
+            image_source="wikimedia",
+        ))
+
+    all_texts = list(texts) + list(enriched_texts or [])
+    for item in all_texts:
         domain = item.get("domain", urlparse(item.get("url", "")).netloc)
         og = item.get("og", {})
 
@@ -40,15 +60,13 @@ def extract_fragments(
                 og=og,
             ))
 
-        # Surface metadata as visible artifact fragments — skip generic aggregator names
-        _GENERIC_SITES = {"wikipedia", "hacker news", "hackernews", "reddit", "youtube"}
-        site_name = og.get("site_name", "")
-        if site_name and site_name.lower() not in _GENERIC_SITES and len(site_name) > 3:
+        for extra in item.get("extra_snippets", []):
             fragments.append(Fragment(
-                type=FragmentType.metadata,
-                content=site_name,
+                type=FragmentType.snippet,
+                content=extra,
                 source_url=item.get("url", ""),
                 source_domain=domain,
+                og=og,
             ))
 
         desc = og.get("description", "")
@@ -60,7 +78,10 @@ def extract_fragments(
                 source_domain=domain,
             ))
 
+        fragments.extend(_extract_metadata_fragments(item, domain, og))
+
     for snap in archive:
+        year = snap["year"]
         fragments.append(Fragment(
             type=FragmentType.archive_screenshot,
             content=snap["thumbnail_url"],
@@ -68,9 +89,68 @@ def extract_fragments(
             source_domain=snap["domain"],
             captured_at=snap["timestamp"],
             og={
-                "year": snap["year"],
+                "year": year,
                 "original_url": snap["original_url"],
             },
         ))
+        if year and str(year).isdigit() and 1900 <= int(year) <= 2030:
+            fragments.append(Fragment(
+                type=FragmentType.metadata,
+                content=str(year),
+                source_url=snap["wayback_url"],
+                source_domain=snap["domain"],
+            ))
 
     return fragments
+
+
+def _extract_metadata_fragments(item: dict, domain: str, og: dict) -> list[Fragment]:
+    frags = []
+    url = item.get("url", "")
+    emitted_subreddit = False
+
+    # 1. Subreddit name (topical, personal)
+    subreddit = item.get("subreddit", "")
+    if subreddit:
+        frags.append(Fragment(
+            type=FragmentType.metadata,
+            content=subreddit,
+            source_url=url,
+            source_domain=domain,
+        ))
+        emitted_subreddit = True
+
+    # 2. Wikipedia categories (short, non-tracking)
+    for cat in (item.get("categories") or [])[:2]:
+        cat = cat.split(":")[-1].strip()
+        if 8 <= len(cat) <= 35 and not any(w in cat for w in ("Wikipedia", "Articles", "pages")):
+            frags.append(Fragment(
+                type=FragmentType.metadata,
+                content=cat,
+                source_url=url,
+                source_domain=domain,
+            ))
+
+    # 3. Publication year
+    pub_time = og.get("published_time", "")
+    if pub_time:
+        year_str = str(pub_time)[:4]
+        if year_str.isdigit() and 1900 <= int(year_str) <= 2030:
+            frags.append(Fragment(
+                type=FragmentType.metadata,
+                content=year_str,
+                source_url=url,
+                source_domain=domain,
+            ))
+
+    # 4. Site name — only if non-generic and we didn't already emit a subreddit
+    site_name = og.get("site_name", "")
+    if site_name and not emitted_subreddit and site_name.lower() not in _GENERIC_SITES and len(site_name) > 3:
+        frags.append(Fragment(
+            type=FragmentType.metadata,
+            content=site_name,
+            source_url=url,
+            source_domain=domain,
+        ))
+
+    return frags
