@@ -9,6 +9,8 @@ from app.scrapers.text import scrape_text, scrape_text_enriched
 from app.scrapers.archive import scrape_archive
 from app.scrapers.wikimedia import scrape_wikimedia
 from app.scrapers.music import scrape_music
+from app.scrapers.ddg import scrape_ddg_images
+from app.scrapers.patents import scrape_patents
 from app.pipeline.extractor import extract_fragments
 from app.pipeline.ranker import rank_and_filter, rank_and_filter_incremental
 from app.pipeline.composer import compose, compose_incremental, _seed_from_topic
@@ -57,13 +59,23 @@ def task_scrape_music(self, topic: str) -> list[dict]:
 
 
 @celery_app.task(bind=True)
+def task_scrape_ddg(self, topic: str) -> list[dict]:
+    return scrape_ddg_images(topic)
+
+
+@celery_app.task(bind=True)
+def task_scrape_patents(self, topic: str) -> list[dict]:
+    return scrape_patents(topic)
+
+
+@celery_app.task(bind=True)
 def task_assemble(self, results: list, job_id: str, topic: str, density: str | None = None) -> None:
-    images_data, texts_data, archive_data = results
+    images_data, ddg_data, texts_data, archive_data = results
 
     try:
         _update_job(job_id, JobStatus.running, progress=60)
 
-        fragments = extract_fragments(images_data, texts_data, archive_data)
+        fragments = extract_fragments(images_data + ddg_data, texts_data, archive_data)
         _update_job(job_id, JobStatus.running, progress=75)
 
         layout_seed = _random.randint(0, 2**31 - 1)
@@ -92,6 +104,7 @@ def task_enrich(self, job_id: str, topic: str, density: str | None = None) -> No
             task_scrape_wikimedia.s(topic),
             task_scrape_enriched_text.s(topic),
             task_scrape_music.s(topic),
+            task_scrape_patents.s(topic),
         ],
         task_assemble_enrichment.s(job_id, topic, density),
     )
@@ -100,7 +113,7 @@ def task_enrich(self, job_id: str, topic: str, density: str | None = None) -> No
 
 @celery_app.task(bind=True)
 def task_assemble_enrichment(self, results: list, job_id: str, topic: str, density: str | None = None) -> None:
-    wikimedia_data, enriched_texts, music_data = results
+    wikimedia_data, enriched_texts, music_data, patents_data = results
 
     try:
         existing_collage = cache.get_collage(job_id)
@@ -113,7 +126,7 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str, densi
             texts=[],
             archive=[],
             wikimedia=wikimedia_data,
-            enriched_texts=enriched_texts + music_data,
+            enriched_texts=enriched_texts + music_data + patents_data,
         )
 
         layout_seed = _random.randint(0, 2**31 - 1)
@@ -136,6 +149,7 @@ def task_orchestrate(self, job_id: str, topic: str, density: str | None = None) 
     pipeline = chord(
         [
             task_scrape_images.s(topic),
+            task_scrape_ddg.s(topic),
             task_scrape_text.s(topic),
             task_scrape_archive.s(topic),
         ],
