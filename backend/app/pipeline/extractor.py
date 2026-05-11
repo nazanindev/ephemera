@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from urllib.parse import urlparse
 from app.models import Fragment, FragmentType
 
@@ -9,12 +10,26 @@ _GENERIC_SITES = {
     "internet archive", "musicbrainz", "patent", "lyrics.ovh",
 }
 
-# MusicBrainz tags that are geography/language, not useful as collage text
 _MB_NOISE_TAGS = {
     "united states", "united kingdom", "the netherlands", "australia",
     "canada", "germany", "france", "sweden", "norway", "ireland",
     "english", "american", "british", "australian", "european",
+    "dutch", "french", "german", "italian", "spanish", "japanese",
+    "portuguese", "swedish", "korean", "chinese", "russian", "polish",
+    "norwegian", "danish", "finnish", "scottish", "welsh", "canadian",
+    "mexican", "brazilian", "argentinian", "indian", "african",
 }
+
+_TRACKLIST_RE = re.compile(r"\*\*tracklist\*\*|\b\d+\.\s+\w.{0,40}feat\.", re.IGNORECASE)
+_BROKEN_START_RE = re.compile(r"^\S*\)")
+
+
+def _is_clean_content(text: str) -> bool:
+    if _TRACKLIST_RE.search(text):
+        return False
+    if _BROKEN_START_RE.match(text):
+        return False
+    return True
 
 
 def extract_fragments(
@@ -49,32 +64,35 @@ def extract_fragments(
         domain = item.get("domain", urlparse(item.get("url", "")).netloc)
         og = item.get("og", {})
 
-        if item.get("title"):
+        title = item.get("title", "")
+        if title and _is_clean_content(title):
             fragments.append(Fragment(
                 type=FragmentType.headline,
-                content=item["title"],
+                content=title,
                 source_url=item.get("url", ""),
                 source_domain=domain,
                 og=og,
             ))
 
-        if item.get("snippet"):
+        snippet = item.get("snippet", "")
+        if snippet and _is_clean_content(snippet):
             fragments.append(Fragment(
                 type=FragmentType.snippet,
-                content=item["snippet"],
+                content=snippet,
                 source_url=item.get("url", ""),
                 source_domain=domain,
                 og=og,
             ))
 
         for extra in item.get("extra_snippets", []):
-            fragments.append(Fragment(
-                type=FragmentType.snippet,
-                content=extra,
-                source_url=item.get("url", ""),
-                source_domain=domain,
-                og=og,
-            ))
+            if extra and _is_clean_content(extra):
+                fragments.append(Fragment(
+                    type=FragmentType.snippet,
+                    content=extra,
+                    source_url=item.get("url", ""),
+                    source_domain=domain,
+                    og=og,
+                ))
 
         desc = og.get("description", "")
         if desc and len(desc) > 60:

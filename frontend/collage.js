@@ -218,12 +218,8 @@ function buildFragment(frag) {
     const div = document.createElement("div");
     div.className = "fragment-headline";
     div.style.width = `${width}px`;
-    if (layout.text_color) {
-      div.style.color = layout.text_color;
-      if (layout.text_color === "#ffffff" || layout.text_color === "#f0e6d3") {
-        div.style.textShadow = "0 1px 3px rgba(0,0,0,0.6)";
-      }
-    }
+    div.style.color = layout.text_color || "";
+    div.style.textShadow = _textShadowFor(layout.text_color);
     div.textContent = content;
     wrapper.appendChild(div);
 
@@ -231,19 +227,16 @@ function buildFragment(frag) {
     const div = document.createElement("div");
     div.className = "fragment-snippet";
     div.style.width = `${width}px`;
-    if (layout.text_color) {
-      div.style.color = layout.text_color;
-      if (layout.text_color === "#ffffff" || layout.text_color === "#f0e6d3") {
-        div.style.textShadow = "0 1px 2px rgba(0,0,0,0.5)";
-      }
-    }
+    div.style.color = layout.text_color || "";
+    div.style.textShadow = _textShadowFor(layout.text_color);
     div.textContent = content;
     wrapper.appendChild(div);
 
   } else if (type === "metadata") {
     const span = document.createElement("span");
     span.className = "fragment-metadata";
-    if (layout.text_color) span.style.color = layout.text_color;
+    span.style.color = layout.text_color || "";
+    span.style.textShadow = _textShadowFor(layout.text_color);
     span.textContent = content;
     wrapper.appendChild(span);
 
@@ -254,7 +247,21 @@ function buildFragment(frag) {
   return wrapper;
 }
 
-const TEXT_COLORS = ["", "", "", "", "#ffffff", "#ffffff", "#f0e6d3", "#1a1208"];
+const TEXT_COLORS = ["#ffffff", "#ffffff", "#ffffff", "#f5e6d3", "#f5e6d3", "#ffd700", "#ffffff", "#1a1208"];
+
+function _textShadowFor(color) {
+  if (!color) {
+    return "0 0 5px rgba(255,255,255,0.8), 0 1px 2px rgba(255,255,255,0.6)";
+  }
+  const hex = color.replace("#", "");
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.5
+    ? "0 1px 4px rgba(0,0,0,0.85), 0 2px 8px rgba(0,0,0,0.45)"
+    : "0 0 6px rgba(255,255,255,0.85), 0 1px 3px rgba(255,255,255,0.7)";
+}
 const TEXT_TYPES = new Set(["headline", "snippet", "metadata"]);
 
 function onRearrange() {

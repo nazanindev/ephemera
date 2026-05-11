@@ -36,7 +36,7 @@ ARCHIVE_FILTERS = [
 ARCHIVE_BLENDS = ["multiply", "multiply", "normal"]
 TEXT_FILTERS = ["", "", "opacity(0.88)"]
 TEXT_BLENDS = ["normal", "normal", "multiply"]
-TEXT_COLORS = ["", "", "", "", "#ffffff", "#ffffff", "#f0e6d3", "#1a1208"]
+TEXT_COLORS = ["#ffffff", "#ffffff", "#ffffff", "#f5e6d3", "#f5e6d3", "#ffd700", "#ffffff", "#1a1208"]
 
 _TEXT_TYPES = {FragmentType.headline, FragmentType.snippet, FragmentType.metadata}
 _IMAGE_TYPES = {FragmentType.image, FragmentType.archive_screenshot}
