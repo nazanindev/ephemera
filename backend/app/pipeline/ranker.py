@@ -1,25 +1,26 @@
 from __future__ import annotations
 import hashlib
 import random
+import re
 import httpx
 from app.models import Fragment, FragmentType
 
 IMAGE_DOMAIN_CAP = 18
-TEXT_DOMAIN_CAP = 4
+TEXT_DOMAIN_CAP = 3
 TEXT_MIN_LEN = 5
 
 _SOURCE_ORDER = {"openverse": 0, "wikimedia": 1, "": 2}
 
 _SPARSE_CAPS = {
     FragmentType.image: 14,
-    FragmentType.headline: 8,
+    FragmentType.headline: 4,
     FragmentType.snippet: 30,
     FragmentType.metadata: 3,
     FragmentType.archive_screenshot: 3,
 }
 _DENSE_CAPS = {
     FragmentType.image: 32,
-    FragmentType.headline: 20,
+    FragmentType.headline: 10,
     FragmentType.snippet: 26,
     FragmentType.metadata: 8,
     FragmentType.archive_screenshot: 8,
@@ -64,12 +65,14 @@ def rank_and_filter(
     vibe: float = 0.5,
     density: str | None = None,
     layout_seed: int | None = None,
+    topic: str | None = None,
 ) -> list[Fragment]:
     caps = _resolve_caps(vibe, density, layout_seed)
     fragments = _dedup(fragments)
     fragments = _sort_images_by_source(fragments)
     fragments = _check_image_links(fragments)
     fragments = _apply_domain_cap(fragments)
+    fragments = _apply_topic_saturation(fragments, topic)
     fragments = _apply_type_caps(fragments, caps)
     return fragments
 
@@ -80,6 +83,7 @@ def rank_and_filter_incremental(
     vibe: float = 0.5,
     density: str | None = None,
     layout_seed: int | None = None,
+    topic: str | None = None,
 ) -> list[Fragment]:
     caps = _resolve_caps(vibe, density, layout_seed)
     existing_hashes = {_content_hash(f) for f in existing_fragments}
@@ -94,14 +98,26 @@ def rank_and_filter_incremental(
     fresh = _dedup(fresh)
     fresh = _sort_images_by_source(fresh)
     fresh = _check_image_links(fresh, max_to_check=20)
+    fresh = _apply_topic_saturation(fresh, topic)
+
+    topic_pattern = re.compile(r"(?<![a-zA-Z])" + re.escape(topic) + r"(?![a-zA-Z])", re.IGNORECASE) if topic else None
+    existing_topic_headlines = sum(
+        1 for f in existing_fragments
+        if f.type == FragmentType.headline and topic_pattern and topic_pattern.search(f.content)
+    )
 
     out = []
     domain_counts = dict(existing_domain_counts)
     type_counts = dict(existing_type_counts)
+    topic_headline_count = existing_topic_headlines
     for f in fresh:
         if f.type in (FragmentType.metadata, FragmentType.headline, FragmentType.snippet):
             if len(f.content.strip()) < TEXT_MIN_LEN:
                 continue
+        if f.type == FragmentType.headline and topic_pattern and topic_pattern.search(f.content):
+            if topic_headline_count >= 4:
+                continue
+            topic_headline_count += 1
         d = f.source_domain
         dcap = IMAGE_DOMAIN_CAP if f.type == FragmentType.image else TEXT_DOMAIN_CAP
         if d and domain_counts.get(d, 0) >= dcap:
@@ -188,4 +204,19 @@ def _apply_type_caps(fragments: list[Fragment], caps: dict) -> list[Fragment]:
         if count < cap:
             type_counts[f.type] = count + 1
             out.append(f)
+    return out
+
+
+def _apply_topic_saturation(fragments: list[Fragment], topic: str | None, max_topic_headlines: int = 4) -> list[Fragment]:
+    if not topic:
+        return fragments
+    pattern = re.compile(r"(?<![a-zA-Z])" + re.escape(topic) + r"(?![a-zA-Z])", re.IGNORECASE)
+    count = 0
+    out = []
+    for f in fragments:
+        if f.type == FragmentType.headline and pattern.search(f.content):
+            if count >= max_topic_headlines:
+                continue
+            count += 1
+        out.append(f)
     return out

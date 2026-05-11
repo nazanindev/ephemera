@@ -91,7 +91,7 @@ def task_assemble(self, results: list, job_id: str, topic: str, density: str | N
 
         layout_seed = _random.randint(0, 2**31 - 1)
         vibe = classify_vibe(topic)
-        fragments = rank_and_filter(fragments, vibe=vibe, density=density, layout_seed=layout_seed)
+        fragments = rank_and_filter(fragments, vibe=vibe, density=density, layout_seed=layout_seed, topic=topic)
         _update_job(job_id, JobStatus.running, progress=88)
 
         fragments = compose(topic, fragments, vibe=vibe, density=density, layout_seed=layout_seed)
@@ -144,7 +144,7 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str, densi
 
         layout_seed = _random.randint(0, 2**31 - 1)
         vibe = classify_vibe(topic)
-        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments, vibe=vibe, density=density, layout_seed=layout_seed)
+        new_fragments = rank_and_filter_incremental(new_fragments, existing_fragments, vibe=vibe, density=density, layout_seed=layout_seed, topic=topic)
         new_fragments = compose_incremental(topic, new_fragments, existing_fragments, vibe=vibe, density=density, layout_seed=layout_seed)
 
         all_fragments = existing_fragments + new_fragments
