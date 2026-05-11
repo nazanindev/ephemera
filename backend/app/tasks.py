@@ -1,8 +1,11 @@
 from __future__ import annotations
 import os
+import logging
 import random as _random
 from celery import Celery, chord
 from celery.exceptions import SoftTimeLimitExceeded
+
+logger = logging.getLogger(__name__)
 from app import cache
 from app.models import Fragment, JobStatus
 from app.scrapers.images import scrape_images
@@ -37,6 +40,7 @@ def task_scrape_images(self, topic: str) -> list[dict]:
     try:
         return scrape_images(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -45,6 +49,7 @@ def task_scrape_text(self, topic: str) -> list[dict]:
     try:
         return scrape_text(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -53,6 +58,7 @@ def task_scrape_archive(self, topic: str) -> list[dict]:
     try:
         return scrape_archive(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -61,6 +67,7 @@ def task_scrape_wikimedia(self, topic: str) -> list[dict]:
     try:
         return scrape_wikimedia(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -69,6 +76,7 @@ def task_scrape_enriched_text(self, topic: str) -> list[dict]:
     try:
         return scrape_text_enriched(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -77,6 +85,7 @@ def task_scrape_music(self, topic: str) -> list[dict]:
     try:
         return scrape_music(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -85,6 +94,7 @@ def task_scrape_ddg(self, topic: str) -> list[dict]:
     try:
         return scrape_ddg_images(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -93,6 +103,7 @@ def task_scrape_patents(self, topic: str) -> list[dict]:
     try:
         return scrape_patents(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -101,6 +112,7 @@ def task_scrape_ddg_text(self, topic: str) -> list[dict]:
     try:
         return scrape_ddg_text(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
@@ -109,6 +121,7 @@ def task_scrape_web_bodies(self, topic: str) -> list[dict]:
     try:
         return scrape_web_bodies(topic)
     except SoftTimeLimitExceeded:
+        logger.warning("scraper timed out: %s topic=%r", self.name, topic)
         return []
 
 
