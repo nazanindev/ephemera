@@ -27,19 +27,12 @@
 
 ## Architecture
 
-Frontend submits a job. Distributed workers scrape topic-related content. Frontend composes the collage.
+Frontend submits a job. Celery workers scrape topic-related content via FastAPI and Redis. Frontend composes the collage.
 
 <img width="2054" height="752" alt="image" src="https://github.com/user-attachments/assets/171d1d3c-ed34-4d3c-8c26-63c0252aa616" />
 
-#### Stack
 
-- Nginx
-- FastAPI
-- Celery workers
-- Redis
+### Sources
 
-**Sources**
+Openverse · Wikipedia · Hacker News · Reddit · Wayback Machine · DuckDuckGo · Wikimedia · Wikiquote · Internet Archive · MusicBrainz · patents
 
-Initial: Openverse · Wikipedia · Hacker News · Reddit · Wayback Machine · DuckDuckGo
-
-Enriched: Wikimedia · Wikiquote · Internet Archive · MusicBrainz · patents
