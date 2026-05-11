@@ -10,6 +10,18 @@
 
 ####
 
+It scrapes images, text, and archival material from Openverse, Wikipedia, Hacker News, Reddit, the Wayback Machine, Wikimedia, Wikiquote, the Internet Archive, MusicBrainz, and patents, and assembles them into a collage.
+
+####
+
+#### Single words work, but can be ambiguous
+
+<img width="2304" height="686" alt="image" src="https://github.com/user-attachments/assets/94aa4eec-19da-4d5b-8696-ad1034a0d43a" />
+
+####
+
+<img width="3438" height="1926" alt="image" src="https://github.com/user-attachments/assets/74af96cc-690c-4f1b-a482-6b966ccb16ce" />
+
 #### Ambiguous queries drift across domains
 
 <img width="2342" height="842" alt="image" src="https://github.com/user-attachments/assets/9aca22ea-717d-404e-af5b-67485483cf46" />
@@ -18,23 +30,19 @@
 
 <img width="3450" height="1938" alt="image" src="https://github.com/user-attachments/assets/a8790cf2-c2ff-4ead-97db-a07702fb6c7e" />
 
+
+#### Specificity unlocks depth
+
+<img width="2280" height="722" alt="image" src="https://github.com/user-attachments/assets/c281873b-f7ca-4ed1-a2e2-1fa5216d812c" />
+
 ####
 
-<img width="2304" height="686" alt="image" src="https://github.com/user-attachments/assets/94aa4eec-19da-4d5b-8696-ad1034a0d43a" />
+<img width="1600" height="2200" alt="image" src="https://github.com/user-attachments/assets/508db8b9-114f-42de-9083-ee61adc91b39" />
 
-####
-
-<img width="3438" height="1926" alt="image" src="https://github.com/user-attachments/assets/74af96cc-690c-4f1b-a482-6b966ccb16ce" />
 
 
 ## Architecture
 
-Frontend submits a job. Celery workers scrape topic-related content via FastAPI and Redis. Frontend composes the collage.
+Frontend submits a job -> Celery workers scrape topic-related content via FastAPI and Redis -> Frontend composes the collage.
 
 <img width="2054" height="752" alt="image" src="https://github.com/user-attachments/assets/171d1d3c-ed34-4d3c-8c26-63c0252aa616" />
-
-
-### Sources
-
-Openverse · Wikipedia · Hacker News · Reddit · Wayback Machine · DuckDuckGo · Wikimedia · Wikiquote · Internet Archive · MusicBrainz · patents
-
