@@ -5,7 +5,8 @@ from celery import Celery, chord
 from app import cache
 from app.models import Fragment, JobStatus
 from app.scrapers.images import scrape_images
-from app.scrapers.text import scrape_text, scrape_text_enriched
+from app.scrapers.text import scrape_text, scrape_text_enriched, scrape_ddg_text
+from app.scrapers.web import scrape_web_bodies
 from app.scrapers.archive import scrape_archive
 from app.scrapers.wikimedia import scrape_wikimedia
 from app.scrapers.music import scrape_music
@@ -69,6 +70,16 @@ def task_scrape_patents(self, topic: str) -> list[dict]:
 
 
 @celery_app.task(bind=True)
+def task_scrape_ddg_text(self, topic: str) -> list[dict]:
+    return scrape_ddg_text(topic)
+
+
+@celery_app.task(bind=True)
+def task_scrape_web_bodies(self, topic: str) -> list[dict]:
+    return scrape_web_bodies(topic)
+
+
+@celery_app.task(bind=True)
 def task_assemble(self, results: list, job_id: str, topic: str, density: str | None = None) -> None:
     images_data, ddg_data, texts_data, archive_data = results
 
@@ -105,6 +116,8 @@ def task_enrich(self, job_id: str, topic: str, density: str | None = None) -> No
             task_scrape_enriched_text.s(topic),
             task_scrape_music.s(topic),
             task_scrape_patents.s(topic),
+            task_scrape_ddg_text.s(topic),
+            task_scrape_web_bodies.s(topic),
         ],
         task_assemble_enrichment.s(job_id, topic, density),
     )
@@ -113,7 +126,7 @@ def task_enrich(self, job_id: str, topic: str, density: str | None = None) -> No
 
 @celery_app.task(bind=True)
 def task_assemble_enrichment(self, results: list, job_id: str, topic: str, density: str | None = None) -> None:
-    wikimedia_data, enriched_texts, music_data, patents_data = results
+    wikimedia_data, enriched_texts, music_data, patents_data, ddg_text_data, web_body_data = results
 
     try:
         existing_collage = cache.get_collage(job_id)
@@ -126,7 +139,7 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str, densi
             texts=[],
             archive=[],
             wikimedia=wikimedia_data,
-            enriched_texts=enriched_texts + music_data + patents_data,
+            enriched_texts=enriched_texts + music_data + patents_data + ddg_text_data + web_body_data,
         )
 
         layout_seed = _random.randint(0, 2**31 - 1)

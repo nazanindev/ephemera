@@ -34,6 +34,34 @@ def scrape_text_enriched(topic: str) -> list[dict]:
     return results
 
 
+def scrape_ddg_text(topic: str, max_results: int = 10) -> list[dict]:
+    """DDG web search text snippets — varied sources, different registers than Wikipedia/HN."""
+    try:
+        from duckduckgo_search import DDGS
+        raw = list(DDGS().text(topic, max_results=max_results))
+    except Exception:
+        return []
+
+    results = []
+    for r in raw:
+        title = (r.get("title") or "").strip()
+        body = (r.get("body") or "").strip()
+        url = r.get("href", "")
+        domain = urlparse(url).netloc.lower().lstrip("www.")
+        if not body or len(body) < 25:
+            continue
+        sub = [s.strip() for s in _split_sentences(body) if 25 <= len(s.strip()) <= 200]
+        results.append({
+            "title": title,
+            "snippet": body[:300],
+            "url": url,
+            "domain": domain,
+            "og": {"site_name": domain},
+            "extra_snippets": sub[1:4],
+        })
+    return results
+
+
 def _fetch_wikipedia(topic: str) -> list[dict]:
     try:
         resp = httpx.get(
@@ -257,10 +285,10 @@ def _split_sentences(text: str) -> list[str]:
 
 
 def _is_interesting_sentence(s: str) -> bool:
-    if len(s) < 50 or len(s) > 300:
+    if len(s) < 25 or len(s) > 300:
         return False
     words = s.split()
-    if not words:
+    if len(words) < 3:
         return False
     # Drop sentences that are mostly proper nouns (>60% capitalized words)
     cap_count = sum(1 for w in words if w and w[0].isupper())
