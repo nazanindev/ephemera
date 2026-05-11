@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import random as _random
 from celery import Celery, chord
+from celery.exceptions import SoftTimeLimitExceeded
 from app import cache
 from app.models import Fragment, JobStatus
 from app.scrapers.images import scrape_images
@@ -19,64 +20,96 @@ from app.pipeline.vibe import classify_vibe
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-celery_app = Celery("scrapbook", broker=REDIS_URL, backend=REDIS_URL)
+celery_app = Celery("ephemera", broker=REDIS_URL, backend=REDIS_URL)
 celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
     task_track_started=True,
     broker_connection_retry_on_startup=True,
+    task_soft_time_limit=25,
+    task_time_limit=30,
 )
 
 
 @celery_app.task(bind=True)
 def task_scrape_images(self, topic: str) -> list[dict]:
-    return scrape_images(topic)
+    try:
+        return scrape_images(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_text(self, topic: str) -> list[dict]:
-    return scrape_text(topic)
+    try:
+        return scrape_text(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_archive(self, topic: str) -> list[dict]:
-    return scrape_archive(topic)
+    try:
+        return scrape_archive(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_wikimedia(self, topic: str) -> list[dict]:
-    return scrape_wikimedia(topic)
+    try:
+        return scrape_wikimedia(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_enriched_text(self, topic: str) -> list[dict]:
-    return scrape_text_enriched(topic)
+    try:
+        return scrape_text_enriched(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_music(self, topic: str) -> list[dict]:
-    return scrape_music(topic)
+    try:
+        return scrape_music(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_ddg(self, topic: str) -> list[dict]:
-    return scrape_ddg_images(topic)
+    try:
+        return scrape_ddg_images(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_patents(self, topic: str) -> list[dict]:
-    return scrape_patents(topic)
+    try:
+        return scrape_patents(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_ddg_text(self, topic: str) -> list[dict]:
-    return scrape_ddg_text(topic)
+    try:
+        return scrape_ddg_text(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
 def task_scrape_web_bodies(self, topic: str) -> list[dict]:
-    return scrape_web_bodies(topic)
+    try:
+        return scrape_web_bodies(topic)
+    except SoftTimeLimitExceeded:
+        return []
 
 
 @celery_app.task(bind=True)
