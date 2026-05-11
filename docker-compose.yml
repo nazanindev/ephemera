@@ -43,5 +43,5 @@ services:
     ports:
       - "3000:80"
     environment:
-      SCRAPEBOOK_API_URL: "http://localhost:8000"
+      EPHEMERA_API_URL: "https://api-production-46c5.up.railway.app"
     restart: unless-stopped

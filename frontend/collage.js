@@ -1,4 +1,4 @@
-const API = window.SCRAPEBOOK_API_URL || "http://localhost:8000";
+const API = window.EPHEMERA_API_URL || "http://localhost:8000";
 const POLL_INTERVAL = 1500;
 const ENRICH_POLL_INTERVAL = 3000;
 
@@ -183,7 +183,6 @@ function buildFragment(frag) {
     img.src = content;
     img.alt = "";
     img.loading = "lazy";
-    img.crossOrigin = "anonymous";
     img.style.width = `${width}px`;
     img.style.height = `${layout.height ?? Math.round(width * 0.7)}px`;
     img.style.objectFit = "cover";
@@ -199,7 +198,6 @@ function buildFragment(frag) {
     img.src = content;
     img.alt = "";
     img.loading = "lazy";
-    img.crossOrigin = "anonymous";
     img.style.width = `${width}px`;
     img.style.height = `${layout.height ?? Math.round(width * 0.65)}px`;
     img.style.objectFit = "cover";
@@ -349,7 +347,7 @@ async function onExport() {
       height: canvas.offsetHeight,
     });
 
-    const topic = (input.value.trim() || "scrapebook").replace(/\s+/g, "-").toLowerCase();
+    const topic = (input.value.trim() || "ephemera").replace(/\s+/g, "-").toLowerCase();
     const link = document.createElement("a");
     link.download = `${topic}.png`;
     link.href = canvasEl.toDataURL("image/png");
