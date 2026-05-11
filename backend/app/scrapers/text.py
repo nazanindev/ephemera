@@ -38,7 +38,7 @@ def scrape_ddg_text(topic: str, max_results: int = 10) -> list[dict]:
     """DDG web search text snippets — varied sources, different registers than Wikipedia/HN."""
     try:
         from duckduckgo_search import DDGS
-        raw = list(DDGS().text(topic, max_results=max_results))
+        raw = list(DDGS(timeout=8).text(topic, max_results=max_results))
     except Exception:
         return []
 
@@ -75,7 +75,7 @@ def _fetch_wikipedia(topic: str) -> list[dict]:
                 "utf8": 1,
             },
             timeout=8,
-            headers={"User-Agent": "Scrapebook/1.0"},
+            headers={"User-Agent": "ephemera/1.0"},
         )
         items = resp.json().get("query", {}).get("search", [])
         results = []
@@ -133,7 +133,7 @@ def _fetch_reddit(topic: str) -> list[dict]:
             "https://www.reddit.com/search.json",
             params={"q": topic, "sort": "top", "limit": 15, "t": "year"},
             timeout=8,
-            headers={"User-Agent": "Scrapebook/1.0"},
+            headers={"User-Agent": "ephemera/1.0"},
         )
         results = []
         for child in resp.json().get("data", {}).get("children", []):
@@ -172,7 +172,7 @@ def _fetch_wikiquote(topic: str) -> list[dict]:
                 "format": "json",
             },
             timeout=8,
-            headers={"User-Agent": "Scrapebook/1.0"},
+            headers={"User-Agent": "ephemera/1.0"},
         )
         pages = resp.json().get("query", {}).get("pages", {})
         page = next(iter(pages.values()), {})
@@ -255,7 +255,7 @@ def _fetch_wikipedia_deep(topic: str) -> list[dict]:
                 "utf8": 1,
             },
             timeout=10,
-            headers={"User-Agent": "Scrapebook/1.0"},
+            headers={"User-Agent": "ephemera/1.0"},
         )
         pages = resp.json().get("query", {}).get("pages", {})
         for page in pages.values():

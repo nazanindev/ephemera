@@ -4,7 +4,7 @@ from __future__ import annotations
 def scrape_ddg_images(topic: str, max_results: int = 2) -> list[dict]:
     try:
         from duckduckgo_search import DDGS
-        results = list(DDGS().images(topic, max_results=max_results, safesearch="moderate"))
+        results = list(DDGS(timeout=8).images(topic, max_results=max_results, safesearch="moderate"))
         out = []
         for r in results:
             url = r.get("image", "")

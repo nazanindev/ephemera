@@ -51,7 +51,7 @@ def _extract_phrases(text: str) -> list[str]:
 def scrape_web_bodies(topic: str, max_pages: int = 3, max_per_page: int = 3) -> list[dict]:
     try:
         from duckduckgo_search import DDGS
-        search_results = list(DDGS().text(topic, max_results=10))
+        search_results = list(DDGS(timeout=8).text(topic, max_results=10))
     except Exception:
         return []
 
@@ -85,7 +85,7 @@ def _fetch_page_text(url: str, domain: str, search_title: str, max_paragraphs: i
             timeout=5,
             follow_redirects=True,
             headers={
-                "User-Agent": "Mozilla/5.0 (compatible; Scrapebook/1.0)",
+                "User-Agent": "Mozilla/5.0 (compatible; ephemera/1.0)",
                 "Accept": "text/html,application/xhtml+xml",
             },
         )
