@@ -27,7 +27,7 @@
 
 ## Architecture
 
-Frontend submits a crawl job. Distributed workers scrape topic-related content. Frontend composes the collage.
+Frontend submits a job. Distributed workers scrape topic-related content. Frontend composes the collage.
 
 <img width="2054" height="752" alt="image" src="https://github.com/user-attachments/assets/171d1d3c-ed34-4d3c-8c26-63c0252aa616" />
 
