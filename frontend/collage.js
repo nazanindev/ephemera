@@ -254,6 +254,9 @@ function buildFragment(frag) {
   return wrapper;
 }
 
+const TEXT_COLORS = ["", "", "", "", "#ffffff", "#ffffff", "#f0e6d3", "#1a1208"];
+const TEXT_TYPES = new Set(["headline", "snippet", "metadata"]);
+
 function onRearrange() {
   if (!lastCollageData) return;
   rearrangeBtn.disabled = true;
@@ -269,6 +272,9 @@ function onRearrange() {
       const h = frag.layout.height ?? Math.round(w * 0.7);
       const maxX = Math.max(0, cw - w);
       const maxY = Math.max(0, ch - h);
+      const newColor = TEXT_TYPES.has(frag.type)
+        ? TEXT_COLORS[Math.floor(Math.random() * TEXT_COLORS.length)]
+        : frag.layout.text_color;
       return {
         ...frag,
         layout: {
@@ -277,6 +283,7 @@ function onRearrange() {
           y: Math.round(Math.random() * maxY),
           rotation: (Math.random() * 16 - 8).toFixed(2) * 1,
           z_index: Math.floor(Math.random() * 20) + 1,
+          text_color: newColor,
         },
       };
     }),
