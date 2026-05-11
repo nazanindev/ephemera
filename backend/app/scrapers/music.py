@@ -1,7 +1,7 @@
 from __future__ import annotations
 import httpx
 
-_MB_HEADERS = {"User-Agent": "Scrapebook/1.0 (toy project; scrapebook@example.com)"}
+_MB_HEADERS = {"User-Agent": "ephemera/1.0 (toy project; nazaninazimi2@gmail.com)"}
 
 
 def scrape_music(topic: str) -> list[dict]:
@@ -86,6 +86,8 @@ def _fetch_lyrics(topic: str) -> list[dict]:
         tracks = resp.json().get("data", [])[:5]
         results = []
         for track in tracks:
+            if len(results) >= 1:
+                break
             artist = track.get("artist", {}).get("name", "")
             title = track.get("title", "")
             if not artist or not title:
