@@ -55,6 +55,7 @@ class _VibeParams:
     large_prob: float
     small_prob: float
     max_rotation: int
+    spread_bias: float  # exponent on distance-from-centroid weighting; higher = more spread
 
 
 def _make_vibe_params(vibe: float) -> _VibeParams:
@@ -66,6 +67,7 @@ def _make_vibe_params(vibe: float) -> _VibeParams:
         large_prob=_lerp(0.08, 0.40, vibe),
         small_prob=_lerp(0.35, 0.10, vibe),
         max_rotation=int(_lerp(8, 18, vibe)),
+        spread_bias=_lerp(3.0, 0.5, vibe),
     )
 
 
@@ -126,7 +128,13 @@ def _pick_effects(rng: random.Random, ftype: FragmentType) -> tuple[str, str]:
     return "", "normal"
 
 
-def _sparse_position(rng: random.Random, placed_boxes: list[dict], width: int, height: int) -> tuple[float, float]:
+def _sparse_position(
+    rng: random.Random,
+    placed_boxes: list[dict],
+    width: int,
+    height: int,
+    spread_bias: float = 1.0,
+) -> tuple[float, float]:
     cell_w = CANVAS_W / GRID_COLS
     cell_h = CANVAS_H / GRID_ROWS
 
@@ -144,7 +152,17 @@ def _sparse_position(rng: random.Random, placed_boxes: list[dict], width: int, h
     sparse = [(c, r) for c in range(GRID_COLS) for r in range(GRID_ROWS)
               if coverage[c][r] == min_cov]
 
-    c, r = rng.choice(sparse)
+    if placed_boxes and len(sparse) > 1:
+        cxc = sum(b["x"] + b["w"] / 2 for b in placed_boxes) / len(placed_boxes)
+        cyc = sum(b["y"] + b["h"] / 2 for b in placed_boxes) / len(placed_boxes)
+        weights = [
+            max(((sc + 0.5) * cell_w - cxc) ** 2 + ((sr + 0.5) * cell_h - cyc) ** 2, 1.0) ** (spread_bias / 2)
+            for sc, sr in sparse
+        ]
+        c, r = rng.choices(sparse, weights=weights, k=1)[0]
+    else:
+        c, r = rng.choice(sparse)
+
     x = c * cell_w + rng.uniform(0.0, max(0.0, cell_w - width * 0.5))
     y = r * cell_h + rng.uniform(0.0, max(0.0, cell_h - height * 0.5))
     x = max(0.0, min(x, CANVAS_W - width))
@@ -181,12 +199,12 @@ def _place_fragment(
     params: _VibeParams,
 ) -> tuple[float, float]:
     if not is_image:
-        return _sparse_position(rng, placed_boxes, width, height)
+        return _sparse_position(rng, placed_boxes, width, height, params.spread_bias)
 
     best_pos = None
     best_score = 1.1
     for _ in range(params.placement_attempts):
-        cx, cy = _sparse_position(rng, placed_boxes, width, height)
+        cx, cy = _sparse_position(rng, placed_boxes, width, height, params.spread_bias)
         score = _image_overlap_score(cx, cy, width, height, placed_boxes, params.image_margin)
         if score < best_score:
             best_score = score
