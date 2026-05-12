@@ -324,6 +324,10 @@ async function onExport() {
   exportBtn.disabled = true;
   exportBtn.textContent = "rendering...";
 
+  const isMobile = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  // Open the window now, synchronously, so iOS Safari doesn't block it as a popup.
+  const mobileWin = isMobile ? window.open("", "_blank") : null;
+
   // html2canvas doesn't support mix-blend-mode or CSS animations — strip them
   // from the live DOM synchronously (html2canvas snapshots the DOM on call),
   // then restore afterward so the page is unaffected.
@@ -348,11 +352,22 @@ async function onExport() {
     });
 
     const topic = (input.value.trim() || "ephemera").replace(/\s+/g, "-").toLowerCase();
-    const link = document.createElement("a");
-    link.download = `${topic}.png`;
-    link.href = canvasEl.toDataURL("image/png");
-    link.click();
+
+    if (mobileWin) {
+      // On mobile, open the image directly so the user can long-press to save to their library.
+      canvasEl.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        mobileWin.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }, "image/png");
+    } else {
+      const link = document.createElement("a");
+      link.download = `${topic}.png`;
+      link.href = canvasEl.toDataURL("image/png");
+      link.click();
+    }
   } catch (err) {
+    if (mobileWin) mobileWin.close();
     console.error("export failed", err);
   } finally {
     frags.forEach((el, i) => {
