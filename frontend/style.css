@@ -30,6 +30,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0;
+  width: min(560px, 92vw);
 }
 
 #prompt-row {
@@ -45,7 +46,8 @@ html, body {
   color: var(--fg);
   font-family: inherit;
   font-size: 1.4rem;
-  width: 42ch;
+  flex: 1;
+  min-width: 0;
   padding: 0.3rem 0.1rem;
   outline: none;
   caret-color: var(--accent);
@@ -245,4 +247,34 @@ html, body {
 
 .fragment--incoming {
   animation: fragmentArrive 0.7s ease-out forwards;
+}
+
+/* ── mobile ── */
+
+@media (max-width: 600px) {
+  #topic-input {
+    font-size: 1rem;
+  }
+
+  #generate-btn {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .density-btn {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.72rem;
+  }
+
+  #btn-row {
+    bottom: 0.8rem;
+    left: 0.8rem;
+    right: 0.8rem;
+    justify-content: space-between;
+  }
+
+  #btn-row button {
+    padding: 0.55rem 0.7rem;
+    font-size: 0.72rem;
+  }
 }
