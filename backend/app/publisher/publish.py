@@ -20,7 +20,7 @@ except ImportError:  # dotenv is optional; env may be set another way
     pass
 
 from app.publisher import experiments as exp_mod
-from app.publisher.caption import build_caption, build_series_caption
+from app.publisher.caption import build_caption
 from app.publisher.config import Settings
 from app.publisher.experiments import Experiment
 from app.publisher.pipeline_client import PipelineClient
@@ -66,17 +66,11 @@ def cmd_render(settings: Settings, args) -> int:
     rendered = _generate_and_render(settings, exp, out_dir)
 
     print("\n--- captions (dry run, nothing posted) ---")
-    if exp.photoset and len(rendered) > 1:
-        items = [(r["shot"].topic, r["shot"].density, r["collage"]) for r in rendered]
-        caption, tags = build_series_caption(items, exp)
+    for r in rendered:
+        caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics)
         print(caption)
-        print(f"tags: {tags}")
-    else:
-        for r in rendered:
-            caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp)
-            print(caption)
-            print(f"tags: {tags}\n")
-    print(f"\npngs in {out_dir}")
+        print(f"tags: {tags}\n")
+    print(f"pngs in {out_dir}")
     return 0
 
 
@@ -90,19 +84,13 @@ def cmd_run(settings: Settings, args) -> int:
 
     for n in range(args.count):
         exp = _resolve_experiment(args.experiment, rng)
-        print(f"\n=== post {n + 1}/{args.count}: {exp.name} (#{exp.tag}) ===")
+        print(f"\n=== run {n + 1}/{args.count}: {exp.name} (#{exp.tag}) · {len(exp.shots)} post(s) ===")
         with tempfile.TemporaryDirectory(prefix="euphemera-") as tmp:
             rendered = _generate_and_render(settings, exp, Path(tmp))
-            if exp.photoset and len(rendered) > 1:
-                items = [(r["shot"].topic, r["shot"].density, r["collage"]) for r in rendered]
-                caption, tags = build_series_caption(items, exp)
-                resp = pub.post_photoset([str(r["png"]) for r in rendered], caption, tags, state=state)
-                print(f"  posted photoset id={resp.get('id')} state={state} tags={tags}")
-            else:
-                for r in rendered:
-                    caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp)
-                    resp = pub.post_photo(str(r["png"]), caption, tags, state=state)
-                    print(f"  posted id={resp.get('id')} state={state} tags={tags}")
+            for r in rendered:
+                caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics)
+                resp = pub.post_photo(str(r["png"]), caption, tags, state=state)
+                print(f"  posted id={resp.get('id')} state={state} tags={tags}")
     return 0
 
 

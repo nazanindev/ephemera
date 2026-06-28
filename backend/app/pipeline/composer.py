@@ -12,9 +12,9 @@ GRID_COLS = 8
 GRID_ROWS = 11
 
 SIZE_BUCKETS = {
-    "small": (90, 240),
-    "medium": (200, 480),
-    "large": (380, 1100),
+    "small": (150, 260),
+    "medium": (240, 500),
+    "large": (400, 1100),
 }
 
 ROTATION_POOL = [-18, -12, -8, -4, -2, 0, 2, 4, 8, 12, 18]
@@ -223,7 +223,7 @@ def _layout_fragment(
 ) -> None:
     width = _pick_size(rng, frag.type, params)
     if frag.type in _IMAGE_TYPES:
-        width = rng.randint(120, 240) if is_repeat else min(width, params.max_image_width)
+        width = rng.randint(160, 280) if is_repeat else min(width, params.max_image_width)
     height = int(width * rng.uniform(0.55, 1.2)) if frag.type in _IMAGE_TYPES \
         else int(width * rng.uniform(0.25, 0.7))
 

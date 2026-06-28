@@ -196,7 +196,7 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  font-size: 0.55rem;
+  font-size: 0.75rem;
   color: #e8d8c0;
   background: rgba(0,0,0,0.55);
   padding: 2px 4px;
@@ -208,7 +208,7 @@ html, body {
 
 .fragment-headline {
   font-family: "Georgia", "Times New Roman", serif;
-  font-size: 1.1rem;
+  font-size: 1.35rem;
   line-height: 1.25;
   color: var(--fg);
   max-width: 100%;
@@ -217,7 +217,7 @@ html, body {
 
 .fragment-snippet {
   font-family: "Arial Narrow", "Arial", sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   line-height: 1.4;
   color: #4a3828;
   max-width: 100%;
@@ -226,7 +226,7 @@ html, body {
 
 .fragment-metadata {
   font-family: "Courier New", Courier, monospace;
-  font-size: 0.58rem;
+  font-size: 0.82rem;
   color: var(--dim);
   letter-spacing: 0.08em;
   white-space: nowrap;

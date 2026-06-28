@@ -40,7 +40,7 @@ class PipelineClient:
         self,
         job_id: str,
         want_enriched: bool = True,
-        timeout: float = 180.0,
+        timeout: float = 300.0,
         interval: float = 2.0,
     ) -> str:
         """Block until the job reaches a terminal state.
