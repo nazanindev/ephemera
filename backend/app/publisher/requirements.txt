@@ -5,4 +5,5 @@ pytumblr==0.1.2
 playwright==1.60.0
 python-dotenv==1.2.2
 requests-oauthlib==2.0.0  # only for get_tokens.py (console fallback)
+Pillow==12.2.0            # palette/mood tags from the rendered image
 # after install:  python -m playwright install chromium
