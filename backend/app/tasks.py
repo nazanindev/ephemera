@@ -126,7 +126,7 @@ def task_scrape_web_bodies(self, topic: str) -> list[dict]:
 
 
 @celery_app.task(bind=True)
-def task_assemble(self, results: list, job_id: str, topic: str, density: str | None = None) -> None:
+def task_assemble(self, results: list, job_id: str, topic: str, density: str | None = None, layout_seed: int | None = None) -> None:
     images_data, ddg_data, texts_data, archive_data = results
 
     try:
@@ -135,15 +135,16 @@ def task_assemble(self, results: list, job_id: str, topic: str, density: str | N
         fragments = extract_fragments(images_data + ddg_data, texts_data, archive_data)
         _update_job(job_id, JobStatus.running, progress=75)
 
-        layout_seed = _random.randint(0, 2**31 - 1)
+        if layout_seed is None:
+            layout_seed = _random.randint(0, 2**31 - 1)
         vibe = classify_vibe(topic)
         fragments = rank_and_filter(fragments, vibe=vibe, density=density, layout_seed=layout_seed, topic=topic)
         _update_job(job_id, JobStatus.running, progress=88)
 
         fragments = compose(topic, fragments, vibe=vibe, density=density, layout_seed=layout_seed)
 
-        cache.set_collage(job_id, _build_collage_dict(job_id, topic, fragments))
-        cache.set_topic_cache(topic, job_id, density)
+        cache.set_collage(job_id, _build_collage_dict(job_id, topic, fragments, layout_seed))
+        cache.set_topic_cache(topic, job_id, density, layout_seed)
         _update_job(job_id, JobStatus.done, progress=100)
 
         task_enrich.delay(job_id, topic, density)
@@ -194,7 +195,7 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str, densi
         new_fragments = compose_incremental(topic, new_fragments, existing_fragments, vibe=vibe, density=density, layout_seed=layout_seed)
 
         all_fragments = existing_fragments + new_fragments
-        cache.set_collage(job_id, _build_collage_dict(job_id, topic, all_fragments))
+        cache.set_collage(job_id, _build_collage_dict(job_id, topic, all_fragments, existing_collage.get("layout_seed")))
         _update_job(job_id, JobStatus.enriched, progress=100)
     except Exception:
         _update_job(job_id, JobStatus.enriched, progress=100)
@@ -202,7 +203,7 @@ def task_assemble_enrichment(self, results: list, job_id: str, topic: str, densi
 
 
 @celery_app.task(bind=True)
-def task_orchestrate(self, job_id: str, topic: str, density: str | None = None) -> None:
+def task_orchestrate(self, job_id: str, topic: str, density: str | None = None, layout_seed: int | None = None) -> None:
     _update_job(job_id, JobStatus.running, progress=10)
 
     pipeline = chord(
@@ -212,16 +213,17 @@ def task_orchestrate(self, job_id: str, topic: str, density: str | None = None) 
             task_scrape_text.s(topic),
             task_scrape_archive.s(topic),
         ],
-        task_assemble.s(job_id, topic, density),
+        task_assemble.s(job_id, topic, density, layout_seed),
     )
     pipeline.apply_async()
 
 
-def _build_collage_dict(job_id: str, topic: str, fragments: list[Fragment]) -> dict:
+def _build_collage_dict(job_id: str, topic: str, fragments: list[Fragment], layout_seed: int | None = None) -> dict:
     return {
         "job_id": job_id,
         "topic": topic,
         "seed": _seed_from_topic(topic),
+        "layout_seed": layout_seed,
         "canvas": {"width": 1600, "height": 2200},
         "fragments": [f.model_dump() for f in fragments],
     }

@@ -121,7 +121,10 @@ function progressLabel(p) {
 async function renderCollage(jobId) {
   const res = await fetch(`${API}/collage/${jobId}`);
   const data = await res.json();
+  renderCollageData(data);
+}
 
+function renderCollageData(data) {
   lastCollageData = data;
 
   canvas.innerHTML = "";
@@ -386,3 +389,37 @@ function setProgress(pct) {
 function setStatus(msg) {
   statusText.textContent = msg;
 }
+
+// ── headless render hook ────────────────────────────────────────────────────
+// Inert during normal use. The euphemera publisher injects a collage as
+// window.__EPHEMERA_COLLAGE__ (via Playwright add_init_script), or you can open
+// ?job=<id> to render an existing job. Either way we render, wait for every
+// image to settle, then flip window.__EPHEMERA_RENDER_READY__ so the
+// screenshotter knows it's safe to capture #canvas.
+(async function headlessRender() {
+  const injected = window.__EPHEMERA_COLLAGE__;
+  const jobId = new URLSearchParams(location.search).get("job");
+  if (!injected && !jobId) return;
+
+  try {
+    const data = injected || await (await fetch(`${API}/collage/${jobId}`)).json();
+    renderCollageData(data);
+
+    // Force eager loading and wait for each image to load or error out.
+    // (buildFragment's own onerror removes broken ones — we listen additively.)
+    const imgs = [...canvas.querySelectorAll("img")];
+    imgs.forEach((img) => { img.loading = "eager"; });
+    await Promise.all(imgs.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise((res) => {
+            img.addEventListener("load", res, { once: true });
+            img.addEventListener("error", res, { once: true });
+          })
+    ));
+    // Let layout/paint settle for a couple of frames before signalling.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  } finally {
+    window.__EPHEMERA_RENDER_READY__ = true;
+  }
+})();

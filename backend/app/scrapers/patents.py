@@ -17,7 +17,7 @@ def scrape_patents(topic: str, max_results: int = 5) -> list[dict]:
                 "o": json.dumps({"size": max_results}),
             },
             timeout=10,
-            headers={"User-Agent": "Scrapebook/1.0"},
+            headers={"User-Agent": "ephemera/1.0"},
         )
         patents = resp.json().get("patents") or []
         results = []

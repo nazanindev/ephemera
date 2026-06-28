@@ -56,6 +56,7 @@ class Job(BaseModel):
 class GenerateRequest(BaseModel):
     topic: str
     density: str | None = None  # "sparse" | "dense" | None
+    layout_seed: int | None = None  # pin composition for reproducible / seed-series runs
 
 
 class GenerateResponse(BaseModel):
@@ -76,6 +77,7 @@ class CanvasConfig(BaseModel):
 class CollageResponse(BaseModel):
     job_id: str
     topic: str
-    seed: int
+    seed: int  # topic hash (deterministic per topic)
+    layout_seed: int | None = None  # the actual composition seed used for this collage
     canvas: CanvasConfig
     fragments: list[Fragment]

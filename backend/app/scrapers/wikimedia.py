@@ -3,7 +3,7 @@ import httpx
 from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 from app.scrapers._filters import is_violent
 
-_HEADERS = {"User-Agent": "Scrapebook/1.0 (toy project)"}
+_HEADERS = {"User-Agent": "ephemera/1.0 (toy project)"}
 _BAD_MIMES = {"image/svg+xml", "image/tiff", "image/x-xcf"}
 _MIN_DIM = 200
 

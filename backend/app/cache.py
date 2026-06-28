@@ -35,13 +35,14 @@ def get_collage(job_id: str) -> dict | None:
     return json.loads(raw) if raw else None
 
 
-def _topic_key(topic: str, density: str | None) -> str:
-    return f"topic:{topic}:{density or 'auto'}"
+def _topic_key(topic: str, density: str | None, layout_seed: int | None = None) -> str:
+    seed_part = "auto" if layout_seed is None else str(layout_seed)
+    return f"topic:{topic}:{density or 'auto'}:{seed_part}"
 
 
-def get_cached_collage_id(topic: str, density: str | None = None) -> str | None:
-    return get_client().get(_topic_key(topic, density))
+def get_cached_collage_id(topic: str, density: str | None = None, layout_seed: int | None = None) -> str | None:
+    return get_client().get(_topic_key(topic, density, layout_seed))
 
 
-def set_topic_cache(topic: str, job_id: str, density: str | None = None) -> None:
-    get_client().setex(_topic_key(topic, density), COLLAGE_TTL, job_id)
+def set_topic_cache(topic: str, job_id: str, density: str | None = None, layout_seed: int | None = None) -> None:
+    get_client().setex(_topic_key(topic, density, layout_seed), COLLAGE_TTL, job_id)

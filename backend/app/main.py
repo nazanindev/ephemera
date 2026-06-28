@@ -12,7 +12,7 @@ from app.models import (
 )
 from app.tasks import task_orchestrate
 
-app = FastAPI(title="Scrapbook Engine")
+app = FastAPI(title="ephemera")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,11 +26,12 @@ app.add_middleware(
 def generate(req: GenerateRequest):
     topic = req.topic.strip()
     density = req.density if req.density in ("sparse", "dense") else None
+    layout_seed = req.layout_seed
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
 
     # Return cached result immediately if available
-    cached_id = cache.get_cached_collage_id(topic, density)
+    cached_id = cache.get_cached_collage_id(topic, density, layout_seed)
     if cached_id and cache.get_collage(cached_id):
         return GenerateResponse(job_id=cached_id)
 
@@ -40,7 +41,7 @@ def generate(req: GenerateRequest):
         "status": JobStatus.pending.value,
         "progress": 0,
     })
-    task_orchestrate.delay(job_id, topic, density)
+    task_orchestrate.delay(job_id, topic, density, layout_seed)
     return GenerateResponse(job_id=job_id)
 
 
