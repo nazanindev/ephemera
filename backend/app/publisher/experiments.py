@@ -25,13 +25,18 @@ class Experiment:
 
 
 # ── meta-topic buckets: bucket -> seed words (every specimen carries its bucket) ──
+# Each word lives in exactly one bucket so the meta-topic tag is unambiguous.
 META_TOPICS: dict[str, list[str]] = {
-    "history": ["telegraph", "almanac", "switchboard", "tram", "ledger", "typewriter",
-                "loom", "aqueduct", "canal", "printing press"],
-    "nature": ["fog", "glacier", "tide", "orchard", "moth", "harbor", "frost", "marsh", "moss"],
-    "science": ["observatory", "telescope", "greenhouse", "specimen", "lighthouse", "kiln", "barometer"],
+    "history": ["almanac", "ledger", "census", "chronicle", "gazette", "archive"],
+    "nature": ["fog", "glacier", "tide", "orchard", "moth", "marsh", "moss", "frost", "estuary"],
+    "science": ["observatory", "telescope", "greenhouse", "specimen", "barometer", "microscope", "herbarium"],
     "art": ["fresco", "engraving", "mosaic", "portrait", "still life", "etching", "tapestry"],
-    "culture": ["radio", "telephone", "carnival", "parade", "festival", "arcade", "phonograph"],
+    "culture": ["carnival", "festival", "arcade", "fairground", "vaudeville", "phonograph"],
+    "architecture": ["lighthouse", "aqueduct", "rotunda", "pavilion", "stairwell", "bandstand", "facade"],
+    "transport": ["tram", "canal", "railway", "harbor", "ferry", "locomotive", "dirigible"],
+    "communication": ["telegraph", "switchboard", "telephone", "radio", "typewriter", "transmitter"],
+    "ritual": ["procession", "masquerade", "shrine", "pilgrimage", "maypole", "vigil"],
+    "industry": ["loom", "kiln", "foundry", "mill", "cannery", "colliery", "printing press"],
 }
 
 QUALIFIERS = [

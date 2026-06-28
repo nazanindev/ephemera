@@ -3,7 +3,8 @@ import re
 
 from app.pipeline.vibe import classify_vibe
 
-BRAND_TAG = "ephemera"
+# Fixed on every post: identity + the discovery communities we want to be found in.
+BRAND_TAGS = ["ephemera", "collage", "digitalcollage"]
 
 # substring found in a fragment's source_domain -> the source label we tag.
 _DOMAIN_SOURCES = [
@@ -143,7 +144,7 @@ def palette_tags(image_path: str | None) -> list[str]:
 def build_tags(topic, collage, density, experiment, meta_topics, image_path=None) -> list[str]:
     """Rich, navigational tag set — the blog's whole index lives here."""
     band = density or vibe_band(classify_vibe(topic))
-    core = [BRAND_TAG]
+    core = list(BRAND_TAGS)
     if experiment is not None and experiment.tag:
         core.append(experiment.tag)
     core.extend(meta_topics or ())
