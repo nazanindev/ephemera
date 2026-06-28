@@ -1,7 +1,7 @@
 from __future__ import annotations
 import httpx
 
-_MB_HEADERS = {"User-Agent": "ephemera/1.0 (toy project; nazaninazimi2@gmail.com)"}
+_MB_HEADERS = {"User-Agent": "ephemera/1.0 (toy project; +https://github.com/nazanindev/ephemera)"}
 
 
 def scrape_music(topic: str) -> list[dict]:

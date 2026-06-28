@@ -8,6 +8,8 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
+import httpx
+
 
 @dataclass
 class Shot:
@@ -102,7 +104,58 @@ def build_neutral_zone(rng: random.Random) -> Experiment:
                       [Shot(topic=t, density=None, meta_topics=(mt,)) for t in pair])
 
 
+# ── the infinite engine: random Wikipedia subjects ──────────────────────────
+_WIKI_API = "https://en.wikipedia.org/w/api.php"
+_WIKI_UA = "euphemera/1.0 (ephemera tumblr bot; +https://github.com/nazanindev/ephemera)"
+
+
+def _good_seed(title: str) -> bool:
+    """Skip titles that make poor collage prompts (disambiguation, lists, dates)."""
+    if not title or len(title) > 38:
+        return False
+    low = title.lower()
+    if "(" in title:
+        return False
+    if low.startswith(("list of", "index of", "outline of", "timeline of", "glossary of")):
+        return False
+    if sum(c.isdigit() for c in title) >= 3:  # "2007 in film", catalog numbers, dates
+        return False
+    return True
+
+
+def random_wikipedia_topic(rng: random.Random | None = None) -> str | None:
+    """A clean random Wikipedia article title — an unbounded, serendipitous seed."""
+    try:
+        resp = httpx.get(
+            _WIKI_API,
+            params={"action": "query", "list": "random", "rnnamespace": 0,
+                    "rnlimit": 12, "format": "json"},
+            timeout=10,
+            headers={"User-Agent": _WIKI_UA},
+        )
+        titles = [x["title"] for x in resp.json().get("query", {}).get("random", [])]
+    except Exception:
+        return None
+    good = [t for t in titles if _good_seed(t)]
+    if good:
+        return (rng or random).choice(good)
+    return titles[0] if titles else None
+
+
+def build_wander(rng: random.Random) -> Experiment:
+    """Wander: a random Wikipedia subject — the never-repeating feed.
+
+    Falls back to a curated dense specimen if Wikipedia is unreachable.
+    """
+    title = random_wikipedia_topic(rng)
+    if not title:
+        mt, word = _pick_meta(rng)
+        return Experiment("wander", "wander", [Shot(topic=word, density="dense", meta_topics=(mt,))])
+    return Experiment("wander", "wander", [Shot(topic=title, density="dense", meta_topics=())])
+
+
 BUILDERS = {
+    "wander": build_wander,
     "specimen": build_specimen,
     "domain-drift": build_domain_drift,
     "seed-series": build_seed_series,
@@ -110,11 +163,13 @@ BUILDERS = {
     "neutral-zone": build_neutral_zone,
 }
 
-# Weighted toward dense experiments.
+# wander (infinite random-Wikipedia feed) carries the bulk; curated experiments
+# show up as occasional structure.
 WEIGHTS = {
-    "specimen": 4,
-    "domain-drift": 3,
-    "seed-series": 3,
+    "wander": 6,
+    "specimen": 2,
+    "domain-drift": 2,
+    "seed-series": 2,
     "density-ladder": 1,
     "neutral-zone": 1,
 }

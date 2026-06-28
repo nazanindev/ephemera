@@ -17,7 +17,7 @@ def scrape_images(topic: str, max_results: int = 40) -> list[dict]:
                 OPENVERSE_URL,
                 params={"q": query, "page_size": 20, "page": page},
                 timeout=12,
-                headers={"User-Agent": "ephemera/1.0 (toy project; contact: nazaninazimi2@gmail.com)"},
+                headers={"User-Agent": "ephemera/1.0 (toy project; +https://github.com/nazanindev/ephemera)"},
             )
             if resp.status_code != 200:
                 break

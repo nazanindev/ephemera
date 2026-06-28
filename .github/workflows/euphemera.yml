@@ -1,0 +1,47 @@
+name: euphemera
+
+# Auto-walk: on a schedule, generate a few collages and drop them into the
+# Tumblr queue, which drips them out at the cadence set in the blog settings.
+on:
+  schedule:
+    - cron: "0 15 * * *"   # daily at 15:00 UTC — edit to taste
+  workflow_dispatch:       # adds a manual "Run workflow" button
+    inputs:
+      count:
+        description: "experiment runs this time"
+        default: "3"
+      state:
+        description: "queue | draft | published"
+        default: "queue"
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # public, not secret:
+      EPHEMERA_API_URL: https://api-production-46c5.up.railway.app
+      EPHEMERA_FRONTEND_URL: https://frontend-production-02bfb.up.railway.app
+      TUMBLR_BLOG: ephemera-project.tumblr.com
+      # secrets (add these in repo Settings → Secrets and variables → Actions):
+      TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
+      TUMBLR_CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_SECRET }}
+      TUMBLR_OAUTH_TOKEN: ${{ secrets.TUMBLR_OAUTH_TOKEN }}
+      TUMBLR_OAUTH_TOKEN_SECRET: ${{ secrets.TUMBLR_OAUTH_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps + Chromium
+        run: |
+          pip install -r app/publisher/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Walk + post
+        run: |
+          python -m app.publisher.publish run \
+            --experiment random \
+            --count "${{ github.event.inputs.count || '3' }}" \
+            --state "${{ github.event.inputs.state || 'queue' }}"
