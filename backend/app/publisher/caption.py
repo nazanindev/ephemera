@@ -63,19 +63,13 @@ def collage_sources(collage: dict) -> list[str]:
     return sorted(found)
 
 
-def _years(topic: str, collage: dict) -> set[int]:
-    """Intentional/historical years only: the topic + Wayback capture years.
+def _years(topic: str) -> set[int]:
+    """Only the topic's own year(s) — the one intentional era signal.
 
-    Deliberately skips text-metadata years, which are article *publication* dates
-    (often recent) and don't describe the subject's era.
+    Skips fragment years entirely: text years are article publication dates and
+    archive years are Wayback capture dates, neither of which describe the subject.
     """
-    years = {int(y) for y in _YEAR_RE.findall(topic)}
-    for f in collage.get("fragments", []):
-        if f.get("type") == "archive_screenshot":
-            y = (f.get("og") or {}).get("year")
-            if y and str(y).isdigit():
-                years.add(int(y))
-    return years
+    return {int(y) for y in _YEAR_RE.findall(topic)}
 
 
 def _era(year: int) -> str:
@@ -90,8 +84,8 @@ def _era(year: int) -> str:
     return "21st century"
 
 
-def _time_tags(topic: str, collage: dict) -> list[str]:
-    years = _years(topic, collage)
+def _time_tags(topic: str) -> list[str]:
+    years = _years(topic)
     if not years:
         return []
     tags = [f"{(y // 10) * 10}s" for y in sorted({(y // 10) * 10 for y in years})[:2]]
@@ -155,7 +149,7 @@ def build_tags(topic, collage, density, experiment, meta_topics, image_path=None
     core.extend(meta_topics or ())
     core.append(band)
 
-    axes = _time_tags(topic, collage) + palette_tags(image_path) \
+    axes = _time_tags(topic) + palette_tags(image_path) \
         + _composition_tags(collage) + _shape_tags(topic)
 
     sources = collage_sources(collage)
