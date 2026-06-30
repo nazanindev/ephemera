@@ -67,7 +67,7 @@ def cmd_render(settings: Settings, args) -> int:
 
     print("\n--- captions (dry run, nothing posted) ---")
     for r in rendered:
-        caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics, str(r["png"]))
+        caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics, str(r["png"]), r["shot"].tags)
         print(caption)
         print(f"tags ({len(tags)}): {tags}\n")
     print(f"pngs in {out_dir}")
@@ -90,7 +90,7 @@ def cmd_run(settings: Settings, args) -> int:
             with tempfile.TemporaryDirectory(prefix="euphemera-") as tmp:
                 rendered = _generate_and_render(settings, exp, Path(tmp))
                 for r in rendered:
-                    caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics, str(r["png"]))
+                    caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics, str(r["png"]), r["shot"].tags)
                     resp = pub.post_photo(str(r["png"]), caption, tags, state=state)
                     posted += 1
                     print(f"  posted id={resp.get('id')} state={state} tags={tags}")

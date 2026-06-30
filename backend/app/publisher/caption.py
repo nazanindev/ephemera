@@ -238,7 +238,7 @@ def semantic_tags(topic: str) -> list[str]:
     return [t for t in tags if 2 < len(t) <= 24]
 
 
-def build_tags(topic, collage, density, experiment, meta_topics, image_path=None) -> list[str]:
+def build_tags(topic, collage, density, experiment, meta_topics, image_path=None, extra_tags=()) -> list[str]:
     """Rich, navigational tag set — the blog's whole index lives here."""
     band = density or vibe_band(classify_vibe(topic))
     core = list(BRAND_TAGS)
@@ -247,6 +247,7 @@ def build_tags(topic, collage, density, experiment, meta_topics, image_path=None
     if experiment is None or experiment.tag != "drift":
         core.extend(semantic_tags(topic))  # place/subject/year: useful for concrete subjects, noise on drift
     core.extend(meta_topics or ())
+    core.extend(t.strip().lower().replace(" ", "-") for t in extra_tags if t)  # topic components: still-life, fog
     core.append(band)
 
     axes = _time_tags(topic) + palette_tags(image_path) \
@@ -262,6 +263,6 @@ def build_tags(topic, collage, density, experiment, meta_topics, image_path=None
     return out[:28]  # Tumblr's per-post ceiling is ~30
 
 
-def build_caption(topic, collage, density, experiment=None, meta_topics=(), image_path=None) -> tuple[str, list[str]]:
+def build_caption(topic, collage, density, experiment=None, meta_topics=(), image_path=None, extra_tags=()) -> tuple[str, list[str]]:
     caption = f'"{topic}"\n{lab_line(topic, collage, density)}'
-    return caption, build_tags(topic, collage, density, experiment, meta_topics, image_path)
+    return caption, build_tags(topic, collage, density, experiment, meta_topics, image_path, extra_tags)

@@ -17,6 +17,7 @@ class Shot:
     density: str | None = "dense"          # default dense; ladders/neutral use None (auto)
     layout_seed: int | None = None
     meta_topics: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()             # the topic's component parts, e.g. ("still life", "fog")
 
 
 @dataclass
@@ -82,26 +83,39 @@ def _pick_meta(rng: random.Random) -> tuple[str, str]:
     return mt, rng.choice(META_TOPICS[mt])
 
 
+_QUAL_PREPS = ("in ", "at ", "under ", "by ", "from ", "on ", "over ")
+
+
+def _qual_tag(qual: str) -> str:
+    """The taggable noun of a qualifier: 'in fog' -> 'fog', 'by lamplight' -> 'lamplight'."""
+    for p in _QUAL_PREPS:
+        if qual.startswith(p):
+            return qual[len(p):]
+    return qual
+
+
 def build_specimen(rng: random.Random) -> Experiment:
     """A plain dense pull — a specimen of ordinary system behavior."""
     mt, word = _pick_meta(rng)
     topic = f"{word} {rng.choice(YEARS)}" if rng.random() < 0.5 else word
     return Experiment("specimen", "specimen",
-                      [Shot(topic=topic, density="dense", meta_topics=(mt,))])
+                      [Shot(topic=topic, density="dense", meta_topics=(mt,), tags=(word,))])
 
 
 def build_domain_drift(rng: random.Random) -> Experiment:
     """One ambiguous word the collage catches mid-confusion (spans meta-topics)."""
     word = rng.choice(AMBIGUOUS)
     return Experiment("domain drift", "domain-drift",
-                      [Shot(topic=word, density="dense", meta_topics=())])
+                      [Shot(topic=word, density="dense", meta_topics=(), tags=(word,))])
 
 
 def build_seed_series(rng: random.Random) -> Experiment:
     """One prompt, N layout seeds — same fragments, different dice. Grouped by the topic tag."""
     mt, word = _pick_meta(rng)
-    topic = f"{word} {rng.choice(QUALIFIERS)}"
-    shots = [Shot(topic=topic, density="dense", layout_seed=_seed(rng), meta_topics=(mt,))
+    qual = rng.choice(QUALIFIERS)
+    topic = f"{word} {qual}"
+    parts = (word, _qual_tag(qual))
+    shots = [Shot(topic=topic, density="dense", layout_seed=_seed(rng), meta_topics=(mt,), tags=parts)
              for _ in range(3)]
     return Experiment("seed series", "seed-series", shots)
 
@@ -110,9 +124,12 @@ def build_density_ladder(rng: random.Random) -> Experiment:
     """word -> word qual -> word qual year. Auto density so vibe climbs across the posts."""
     mt, word = _pick_meta(rng)
     qual, year = rng.choice(QUALIFIERS), rng.choice(YEARS)
-    rungs = [word, f"{word} {qual}", f"{word} {qual} {year}"]
+    qn = _qual_tag(qual)
+    rungs = [(word, (word,)),
+             (f"{word} {qual}", (word, qn)),
+             (f"{word} {qual} {year}", (word, qn))]
     return Experiment("density ladder", "density-ladder",
-                      [Shot(topic=t, density=None, meta_topics=(mt,)) for t in rungs])
+                      [Shot(topic=t, density=None, meta_topics=(mt,), tags=tg) for t, tg in rungs])
 
 
 def build_neutral_zone(rng: random.Random) -> Experiment:
@@ -120,21 +137,26 @@ def build_neutral_zone(rng: random.Random) -> Experiment:
     mt = rng.choice(list(META_TOPICS))
     pair = rng.sample(META_TOPICS[mt], 2)
     return Experiment("neutral zone", "neutral-zone",
-                      [Shot(topic=t, density=None, meta_topics=(mt,)) for t in pair])
+                      [Shot(topic=t, density=None, meta_topics=(mt,), tags=(t,)) for t in pair])
 
 
-def _drift_topic(rng: random.Random) -> str:
+def _drift_pick(rng: random.Random) -> tuple[str, tuple[str, ...]]:
+    """Return (topic, component_tags)."""
     r = rng.random()
     if r < 0.45:                                   # single polysemous/evocative word -> domain drift
-        return rng.choice(POLYSEMOUS + EVOCATIVE)
+        w = rng.choice(POLYSEMOUS + EVOCATIVE)
+        return w, (w,)
     if r < 0.80:                                   # concrete matter + charged vessel
-        return f"{rng.choice(MATTER)} {rng.choice(VESSELS)}"   # "salt cathedral", "neon circus"
-    return f"{rng.choice(MATTER)} {rng.choice(EVOCATIVE)}"      # "rust vertigo", "amber undertow"
+        m, v = rng.choice(MATTER), rng.choice(VESSELS)
+        return f"{m} {v}", (m, v)                  # "salt cathedral", "neon circus"
+    m, e = rng.choice(MATTER), rng.choice(EVOCATIVE)
+    return f"{m} {e}", (m, e)                      # "rust vertigo", "amber undertow"
 
 
 def build_drift(rng: random.Random) -> Experiment:
     """The walk: evocative, polysemous, half-surreal seeds that make the system drift."""
-    return Experiment("drift", "drift", [Shot(topic=_drift_topic(rng), density="dense", meta_topics=())])
+    topic, parts = _drift_pick(rng)
+    return Experiment("drift", "drift", [Shot(topic=topic, density="dense", meta_topics=(), tags=parts)])
 
 
 # ── the infinite engine: random Wikipedia subjects ──────────────────────────
