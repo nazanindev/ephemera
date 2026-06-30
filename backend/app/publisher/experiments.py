@@ -52,6 +52,25 @@ AMBIGUOUS = [
     "iris", "atlas", "nova", "echo", "vega", "orion", "sable",
 ]
 
+# ── drift: evocative / polysemous / half-surreal seeds that push the system's edges ──
+POLYSEMOUS = [
+    "mercury", "echo", "current", "charge", "vessel", "mantle", "fault", "relay",
+    "signal", "drift", "atlas", "iris", "nova", "ember", "relic", "specter",
+    "mirror", "needle", "crown", "vault", "tongue", "compass", "prism", "static",
+]
+EVOCATIVE = [
+    "vertigo", "mirage", "reverie", "oblivion", "trance", "rupture", "decay",
+    "hush", "fever", "halo", "eclipse", "threshold", "undertow", "delirium",
+]
+MATTER = [
+    "rust", "salt", "ash", "glass", "copper", "neon", "velvet", "smoke", "amber",
+    "tar", "chrome", "bone", "wax", "ivory", "obsidian",
+]
+VESSELS = [
+    "cathedral", "ruin", "engine", "machine", "garden", "opera", "circus", "asylum",
+    "observatory", "reliquary", "mausoleum", "carnival", "altar", "menagerie",
+]
+
 
 def _seed(rng: random.Random) -> int:
     return rng.randint(0, 2**31 - 1)
@@ -102,6 +121,20 @@ def build_neutral_zone(rng: random.Random) -> Experiment:
     pair = rng.sample(META_TOPICS[mt], 2)
     return Experiment("neutral zone", "neutral-zone",
                       [Shot(topic=t, density=None, meta_topics=(mt,)) for t in pair])
+
+
+def _drift_topic(rng: random.Random) -> str:
+    r = rng.random()
+    if r < 0.45:                                   # single polysemous/evocative word -> domain drift
+        return rng.choice(POLYSEMOUS + EVOCATIVE)
+    if r < 0.80:                                   # concrete matter + charged vessel
+        return f"{rng.choice(MATTER)} {rng.choice(VESSELS)}"   # "salt cathedral", "neon circus"
+    return f"{rng.choice(MATTER)} {rng.choice(EVOCATIVE)}"      # "rust vertigo", "amber undertow"
+
+
+def build_drift(rng: random.Random) -> Experiment:
+    """The walk: evocative, polysemous, half-surreal seeds that make the system drift."""
+    return Experiment("drift", "drift", [Shot(topic=_drift_topic(rng), density="dense", meta_topics=())])
 
 
 # ── the infinite engine: random Wikipedia subjects ──────────────────────────
@@ -155,6 +188,7 @@ def build_wander(rng: random.Random) -> Experiment:
 
 
 BUILDERS = {
+    "drift": build_drift,
     "wander": build_wander,
     "specimen": build_specimen,
     "domain-drift": build_domain_drift,
@@ -163,15 +197,14 @@ BUILDERS = {
     "neutral-zone": build_neutral_zone,
 }
 
-# wander (infinite random-Wikipedia feed) carries the bulk; curated experiments
-# show up as occasional structure.
+# drift carries the walk (pushes the system's edges); the historical/curated work is
+# an occasional interesting drip. wander (Wikipedia) stays available via --experiment
+# but is out of the random feed — too square to govern the walk.
 WEIGHTS = {
-    "wander": 6,
+    "drift": 10,
     "specimen": 2,
-    "domain-drift": 2,
-    "seed-series": 2,
     "density-ladder": 1,
-    "neutral-zone": 1,
+    "seed-series": 1,
 }
 
 
