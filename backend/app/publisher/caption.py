@@ -244,7 +244,8 @@ def build_tags(topic, collage, density, experiment, meta_topics, image_path=None
     core = list(BRAND_TAGS)
     if experiment is not None and experiment.tag:
         core.append(experiment.tag)
-    core.extend(semantic_tags(topic))     # place, subject type, founding year
+    if experiment is None or experiment.tag != "drift":
+        core.extend(semantic_tags(topic))  # place/subject/year: useful for concrete subjects, noise on drift
     core.extend(meta_topics or ())
     core.append(band)
 
