@@ -33,11 +33,11 @@ _USER_SPARSE_CAPS = {
     FragmentType.archive_screenshot: 3,
 }
 _USER_DENSE_CAPS = {
-    FragmentType.image: 42,
-    FragmentType.headline: 16,
-    FragmentType.snippet: 28,
+    FragmentType.image: 34,
+    FragmentType.headline: 14,
+    FragmentType.snippet: 26,
     FragmentType.metadata: 7,
-    FragmentType.archive_screenshot: 8,
+    FragmentType.archive_screenshot: 7,
 }
 
 

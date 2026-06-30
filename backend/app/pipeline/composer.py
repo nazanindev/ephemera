@@ -65,7 +65,7 @@ def _make_vibe_params(vibe: float) -> _VibeParams:
         image_margin=int(_lerp(60, 8, vibe)),
         placement_attempts=int(_lerp(25, 12, vibe)),
         max_image_width=int(_lerp(420, 1100, vibe)),
-        min_image_width=int(_lerp(300, 150, vibe)),  # sparse: big & legible; dense: keep small accents
+        min_image_width=int(_lerp(320, 230, vibe)),  # legibility floor: sparse big, dense still readable
         large_prob=_lerp(0.08, 0.40, vibe),
         small_prob=_lerp(0.35, 0.10, vibe),
         max_rotation=int(_lerp(8, 18, vibe)),
@@ -226,7 +226,7 @@ def _layout_fragment(
 ) -> None:
     width = _pick_size(rng, frag.type, params)
     if frag.type in _IMAGE_TYPES:
-        width = rng.randint(160, 280) if is_repeat else min(width, params.max_image_width)
+        width = rng.randint(210, 320) if is_repeat else min(width, params.max_image_width)
     height = int(width * rng.uniform(0.55, 1.2)) if frag.type in _IMAGE_TYPES \
         else int(width * rng.uniform(0.25, 0.7))
 
