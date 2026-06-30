@@ -1,7 +1,7 @@
 name: euphemera
 
-# Auto-walk: on a schedule, generate a few collages and drop them into the
-# Tumblr queue, which drips them out at the cadence set in the blog settings.
+# Auto-walk (curated): on a schedule, generate a few collages and post them to
+# DRAFTS. You review the drafts periodically and publish the ones you like by hand.
 on:
   schedule:
     - cron: "0 15 * * *"   # daily at 15:00 UTC — edit to taste
@@ -9,10 +9,10 @@ on:
     inputs:
       count:
         description: "experiment runs this time"
-        default: "3"
+        default: "4"
       state:
-        description: "queue | draft | published"
-        default: "queue"
+        description: "draft | queue | published"
+        default: "draft"
 
 jobs:
   post:
@@ -39,9 +39,9 @@ jobs:
         run: |
           pip install -r app/publisher/requirements.txt
           python -m playwright install --with-deps chromium
-      - name: Walk + post
+      - name: Walk + post to drafts
         run: |
           python -m app.publisher.publish run \
             --experiment random \
-            --count "${{ github.event.inputs.count || '3' }}" \
-            --state "${{ github.event.inputs.state || 'queue' }}"
+            --count "${{ github.event.inputs.count || '4' }}" \
+            --state "${{ github.event.inputs.state || 'draft' }}"
