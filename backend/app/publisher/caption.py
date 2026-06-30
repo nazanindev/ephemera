@@ -1,5 +1,8 @@
 from __future__ import annotations
 import re
+from urllib.parse import quote
+
+import httpx
 
 from app.pipeline.vibe import classify_vibe
 
@@ -141,12 +144,89 @@ def palette_tags(image_path: str | None) -> list[str]:
     return tags
 
 
+# ── content-aware tags: ask Wikipedia what the subject actually IS ────────────
+_SUMMARY_URL = "https://en.wikipedia.org/api/rest_v1/page/summary/"
+_WIKI_UA = "euphemera/1.0 (ephemera tumblr bot; +https://github.com/nazanindev/ephemera)"
+_ANY_YEAR_RE = re.compile(r"\b(1\d{3}|20[0-2]\d)\b")  # 1000–2029, for founding years
+_TYPE_STOP = {"the", "a", "an", "of", "and", "or", "former", "small", "large"}
+
+
+def _era_broad(year: int) -> str:
+    if year < 500:
+        return "ancient"
+    if year < 1500:
+        return "medieval"
+    if year < 1800:
+        return "early modern"
+    if year < 1900:
+        return "19th century"
+    if year < 2001:
+        return "20th century"
+    return "21st century"
+
+
+def _wiki_summary(topic: str) -> dict | None:
+    try:
+        r = httpx.get(
+            _SUMMARY_URL + quote(topic.strip().replace(" ", "_"), safe=""),
+            timeout=8, headers={"User-Agent": _WIKI_UA},
+        )
+        return r.json() if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
+def semantic_tags(topic: str) -> list[str]:
+    """Place / subject-type / founding-year, mined from the topic's Wikipedia article.
+
+    The Wikidata one-liner ("castle in Scotland", "1962 film") gives type + place;
+    the extract gives the founding year. Real subjects (the wander feed) get rich
+    tags; curated combo-topics 404 and return [].
+    """
+    data = _wiki_summary(topic)
+    if not data or data.get("type") == "disambiguation":
+        return []
+    tags: list[str] = []
+    desc = (data.get("description") or "").strip().lower()
+    extract = data.get("extract") or ""
+    if desc and len(desc) <= 60:
+        head = desc
+        if " in " in desc:
+            head, _, where = desc.partition(" in ")
+            where = where.strip()
+            if not re.fullmatch(r"\d{3,4}", where.split(",")[0].strip()):  # "in 1612" is a date, not a place
+                parts = [p.strip().removeprefix("the ") for p in re.split(r"[,(/]", where) if p.strip()]
+                if parts:
+                    place = parts[-1]
+                    if len(place) > 24 and place.split():  # long phrase -> the country word
+                        place = place.split()[-1]
+                    tags.append(place)
+                    if len(parts) >= 2 and 2 < len(parts[0]) <= 20:
+                        tags.append(parts[0])               # sub-region
+        head = head.split(" by ")[0]                        # drop "by <author/director>"
+        words = [w for w in re.findall(r"[a-z]+", head) if w not in _TYPE_STOP]
+        if words and len(words[-1]) > 2:
+            tags.append(words[-1])                           # subject type (castle/river/painter/film)
+    if data.get("coordinates"):
+        tags.append("place")
+    # year: the description's canonical year ("1982 film", "(1853–1890)") wins;
+    # else the earliest year in the extract (a founding date).
+    desc_years = [int(y) for y in _ANY_YEAR_RE.findall(desc)]
+    ext_years = [int(y) for y in _ANY_YEAR_RE.findall(extract) if 1000 <= int(y) <= 2026]
+    chosen = desc_years[:1] or ([min(ext_years)] if ext_years else [])
+    for y in chosen:
+        if 1000 <= y <= 2026:
+            tags += [f"{(y // 10) * 10}s", _era_broad(y)]
+    return [t for t in tags if 2 < len(t) <= 24]
+
+
 def build_tags(topic, collage, density, experiment, meta_topics, image_path=None) -> list[str]:
     """Rich, navigational tag set — the blog's whole index lives here."""
     band = density or vibe_band(classify_vibe(topic))
     core = list(BRAND_TAGS)
     if experiment is not None and experiment.tag:
         core.append(experiment.tag)
+    core.extend(semantic_tags(topic))     # place, subject type, founding year
     core.extend(meta_topics or ())
     core.append(band)
 
@@ -160,7 +240,7 @@ def build_tags(topic, collage, density, experiment, meta_topics, image_path=None
     ordered = core + axes + [topic.strip().lower()] + sources
     seen: set[str] = set()
     out = [t for t in ordered if t and not (t in seen or seen.add(t))]
-    return out[:24]  # Tumblr's per-post ceiling is ~30; keep it generous but bounded
+    return out[:28]  # Tumblr's per-post ceiling is ~30
 
 
 def build_caption(topic, collage, density, experiment=None, meta_topics=(), image_path=None) -> tuple[str, list[str]]:

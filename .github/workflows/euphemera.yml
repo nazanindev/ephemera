@@ -8,11 +8,15 @@ on:
   workflow_dispatch:       # adds a manual "Run workflow" button
     inputs:
       count:
-        description: "experiment runs this time"
+        description: "how many experiment runs"
+        type: choice
         default: "4"
+        options: ["1", "2", "4", "6", "10"]
       state:
-        description: "draft | queue | published"
+        description: "where the posts land"
+        type: choice
         default: "draft"
+        options: ["draft", "queue", "published"]
 
 jobs:
   post:
