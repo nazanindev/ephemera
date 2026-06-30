@@ -82,15 +82,21 @@ def cmd_run(settings: Settings, args) -> int:
     pub = TumblrPublisher(settings)
     pub.verify()  # fail fast on bad creds before scraping
 
+    posted = 0
     for n in range(args.count):
         exp = _resolve_experiment(args.experiment, rng)
         print(f"\n=== run {n + 1}/{args.count}: {exp.name} (#{exp.tag}) · {len(exp.shots)} post(s) ===")
-        with tempfile.TemporaryDirectory(prefix="euphemera-") as tmp:
-            rendered = _generate_and_render(settings, exp, Path(tmp))
-            for r in rendered:
-                caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics, str(r["png"]))
-                resp = pub.post_photo(str(r["png"]), caption, tags, state=state)
-                print(f"  posted id={resp.get('id')} state={state} tags={tags}")
+        try:
+            with tempfile.TemporaryDirectory(prefix="euphemera-") as tmp:
+                rendered = _generate_and_render(settings, exp, Path(tmp))
+                for r in rendered:
+                    caption, tags = build_caption(r["shot"].topic, r["collage"], r["shot"].density, exp, r["shot"].meta_topics, str(r["png"]))
+                    resp = pub.post_photo(str(r["png"]), caption, tags, state=state)
+                    posted += 1
+                    print(f"  posted id={resp.get('id')} state={state} tags={tags}")
+        except Exception as e:  # one bad scrape/render shouldn't sink the whole batch
+            print(f"  ! skipped run {n + 1} ({exp.tag}): {e}")
+    print(f"\ndone: {posted} drafts posted")
     return 0
 
 
