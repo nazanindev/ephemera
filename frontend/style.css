@@ -196,7 +196,7 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: #e8d8c0;
   background: rgba(0,0,0,0.55);
   padding: 2px 4px;
@@ -226,7 +226,7 @@ html, body {
 
 .fragment-metadata {
   font-family: "Courier New", Courier, monospace;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   color: var(--dim);
   letter-spacing: 0.08em;
   white-space: nowrap;

@@ -52,6 +52,7 @@ class _VibeParams:
     image_margin: int
     placement_attempts: int
     max_image_width: int
+    min_image_width: int  # legibility floor; high for sparse, low for dense
     large_prob: float
     small_prob: float
     max_rotation: int
@@ -64,6 +65,7 @@ def _make_vibe_params(vibe: float) -> _VibeParams:
         image_margin=int(_lerp(60, 8, vibe)),
         placement_attempts=int(_lerp(25, 12, vibe)),
         max_image_width=int(_lerp(420, 1100, vibe)),
+        min_image_width=int(_lerp(300, 150, vibe)),  # sparse: big & legible; dense: keep small accents
         large_prob=_lerp(0.08, 0.40, vibe),
         small_prob=_lerp(0.35, 0.10, vibe),
         max_rotation=int(_lerp(8, 18, vibe)),
@@ -89,6 +91,7 @@ def _pick_size(rng: random.Random, ftype: FragmentType, params: _VibeParams) -> 
     else:
         lo, hi = SIZE_BUCKETS["large"]
     hi = min(hi, params.max_image_width)
+    lo = max(lo, params.min_image_width)  # raise the floor (vibe-scaled) for legibility
     lo = min(lo, hi)
     return rng.randint(lo, hi)
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 import re
-from urllib.parse import quote
 
 import httpx
 
@@ -145,7 +144,7 @@ def palette_tags(image_path: str | None) -> list[str]:
 
 
 # ── content-aware tags: ask Wikipedia what the subject actually IS ────────────
-_SUMMARY_URL = "https://en.wikipedia.org/api/rest_v1/page/summary/"
+_API_URL = "https://en.wikipedia.org/w/api.php"
 _WIKI_UA = "euphemera/1.0 (ephemera tumblr bot; +https://github.com/nazanindev/ephemera)"
 _ANY_YEAR_RE = re.compile(r"\b(1\d{3}|20[0-2]\d)\b")  # 1000–2029, for founding years
 _TYPE_STOP = {"the", "a", "an", "of", "and", "or", "former", "small", "large"}
@@ -165,15 +164,22 @@ def _era_broad(year: int) -> str:
     return "21st century"
 
 
-def _wiki_summary(topic: str) -> dict | None:
+def _wiki_data(topic: str) -> dict | None:
+    """Wikipedia page metadata: Wikidata description, categories, coordinates, intro."""
     try:
-        r = httpx.get(
-            _SUMMARY_URL + quote(topic.strip().replace(" ", "_"), safe=""),
-            timeout=8, headers={"User-Agent": _WIKI_UA},
-        )
-        return r.json() if r.status_code == 200 else None
+        r = httpx.get(_API_URL, params={
+            "action": "query", "format": "json", "redirects": "1",
+            "titles": topic.strip(),
+            "prop": "description|categories|coordinates|extracts",
+            "exintro": "1", "explaintext": "1", "cllimit": "30", "clshow": "!hidden",
+        }, timeout=10, headers={"User-Agent": _WIKI_UA})
+        pages = r.json().get("query", {}).get("pages", {})
     except Exception:
         return None
+    page = next(iter(pages.values()), None) if pages else None
+    if not page or "missing" in page:
+        return None
+    return page
 
 
 def semantic_tags(topic: str) -> list[str]:
@@ -183,12 +189,16 @@ def semantic_tags(topic: str) -> list[str]:
     the extract gives the founding year. Real subjects (the wander feed) get rich
     tags; curated combo-topics 404 and return [].
     """
-    data = _wiki_summary(topic)
-    if not data or data.get("type") == "disambiguation":
+    page = _wiki_data(topic)
+    if not page:
         return []
+    desc = (page.get("description") or "").strip().lower()
+    extract = page.get("extract") or ""
+    cats = [c["title"].split(":", 1)[-1].lower() for c in page.get("categories", [])]
+    if desc == "topics referred to by the same term" or any("disambiguation" in c for c in cats):
+        return []
+
     tags: list[str] = []
-    desc = (data.get("description") or "").strip().lower()
-    extract = data.get("extract") or ""
     if desc and len(desc) <= 60:
         head = desc
         if " in " in desc:
@@ -207,16 +217,24 @@ def semantic_tags(topic: str) -> list[str]:
         words = [w for w in re.findall(r"[a-z]+", head) if w not in _TYPE_STOP]
         if words and len(words[-1]) > 2:
             tags.append(words[-1])                           # subject type (castle/river/painter/film)
-    if data.get("coordinates"):
+    if page.get("coordinates"):
         tags.append("place")
-    # year: the description's canonical year ("1982 film", "(1853–1890)") wins;
-    # else the earliest year in the extract (a founding date).
+
+    # year: a birth/establishment category (reliable, present even w/o description)
+    # wins; then the description's year; then the extract's earliest.
+    cat_years = []
+    for ct in cats:
+        if any(k in ct for k in ("births", "establishments", "completions", "openings")):
+            m = _ANY_YEAR_RE.search(ct)
+            if m:
+                cat_years.append(int(m.group(0)))
     desc_years = [int(y) for y in _ANY_YEAR_RE.findall(desc)]
     ext_years = [int(y) for y in _ANY_YEAR_RE.findall(extract) if 1000 <= int(y) <= 2026]
-    chosen = desc_years[:1] or ([min(ext_years)] if ext_years else [])
-    for y in chosen:
-        if 1000 <= y <= 2026:
-            tags += [f"{(y // 10) * 10}s", _era_broad(y)]
+    year = (min(cat_years) if cat_years else
+            desc_years[0] if desc_years else
+            min(ext_years) if ext_years else None)
+    if year and 1000 <= year <= 2026:
+        tags += [f"{(year // 10) * 10}s", _era_broad(year)]
     return [t for t in tags if 2 < len(t) <= 24]
 
 
