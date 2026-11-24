@@ -7,3 +7,4 @@ beautifulsoup4==4.12.3
 duckduckgo-search==6.3.7
 pydantic==2.9.2
 lxml==5.3.0
+packaging==26.4  # kombu>=5.7 redis transport imports it without declaring it
