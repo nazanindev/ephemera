@@ -21,7 +21,9 @@ on:
 
 jobs:
   post:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest rolled to 26.04 (2026-11-02), which the pinned Playwright
+    # (1.60.0) can't install Chromium deps on. Bump both together when upgrading.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend
