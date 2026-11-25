@@ -1,11 +1,14 @@
 name: ephemera
 
-# Auto-walk: on a schedule, generate a few collages, run each through the publish-time
-# screen (empty canvas / blocklist — app/publisher/screen.py) and post the survivors
-# straight to PUBLIC. Pick "draft" in the manual run to review a batch by hand instead.
+# Manual walk: generate a few collages, run each through the publish-time screen (empty
+# canvas / blocklist — app/publisher/screen.py) and post the survivors. Pick "draft" to
+# review a batch by hand instead.
+#
+# The DAILY run no longer lives here: GitHub disables scheduled workflows after 60 days
+# without a commit. It runs as the "Publisher" cron service on Railway (0 15 * * * UTC,
+# backend/publisher.Dockerfile -> app/publisher/cron.sh). Don't re-add a schedule here
+# or the two will double-post.
 on:
-  schedule:
-    - cron: "0 15 * * *"   # daily at 15:00 UTC — edit to taste
   workflow_dispatch:       # adds a manual "Run workflow" button
     inputs:
       count:

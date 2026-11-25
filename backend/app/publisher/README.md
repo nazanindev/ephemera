@@ -87,9 +87,16 @@ the walk won't retry the topic and `metrics` shows what gets thrown out. Tune th
 thresholds and word lists in `screen.py`; `run --no-screen` bypasses it.
 
 ### Scheduling
-`.github/workflows/ephemera.yml` runs the walk daily and posts straight to public.
-To drip posts instead of dropping the batch at once, dispatch it with `queue` and
-configure the blog's queue (Settings → Queue) to 1–3 posts/day.
+The daily walk runs as the **Publisher** cron service on Railway (`0 15 * * *` UTC),
+built from `backend/publisher.Dockerfile` and running `app/publisher/cron.sh`; it posts
+straight to public. Its count and state come from the service's `EPHEMERA_COUNT` /
+`EPHEMERA_POST_STATE` variables, and it needs the Tumblr credentials and `LEDGER_SECRET`
+set there too. Deploying the service does not trigger a run. (It moved off GitHub
+Actions because GitHub disables scheduled workflows after 60 days without a commit.)
+
+`.github/workflows/ephemera.yml` is now manual-only ("Run workflow"). To drip posts
+instead of dropping the batch at once, dispatch it with `queue` and configure the
+blog's queue (Settings → Queue) to 1–3 posts/day.
 
 ## Notes
 - `render` and `run` need the backend + frontend reachable; `verify` only needs Tumblr.
